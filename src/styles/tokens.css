@@ -1,0 +1,95 @@
+/* CHANDRA — Global Design Tokens */
+
+/* Local font declarations for production WOFF2 assets (placed in /public/fonts/) */
+@font-face {
+  font-family: 'Monument Grotesk Condensed';
+  src: url('/fonts/MonumentGrotesk-Condensed-Heavy.woff2') format('woff2');
+  font-weight: 800 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Monument Grotesk';
+  src: url('/fonts/MonumentGrotesk-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Monument Grotesk';
+  src: url('/fonts/MonumentGrotesk-Medium.woff2') format('woff2');
+  font-weight: 500 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Monument Grotesk Semi-Mono';
+  src: url('/fonts/MonumentGrotesk-SemiMono.woff2') format('woff2');
+  font-weight: 400 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Söhne';
+  src: url('/fonts/Sohne-Buch.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Söhne';
+  src: url('/fonts/Sohne-Medium.woff2') format('woff2');
+  font-weight: 500 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Canela';
+  src: url('/fonts/Canela-Light.woff2') format('woff2');
+  font-weight: 300 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Exact Figma Brand Color Tokens */
+  --color-black: #070807;
+  --color-charcoal: #11120F;
+  --color-charcoal-elevated: #181A16;
+  --color-ivory: #F3EFE6;
+  --color-ivory-soft: #E9E3D7;
+  --color-gold: #C6A15B;
+  --color-gold-hover: #D8B573;
+  --color-gold-dim: rgba(198, 161, 91, 0.28);
+  --color-bronze: #8E7042;
+  --color-white: #F8F7F3;
+  --color-muted-dark: #8E9398;
+  --color-muted-light: #6B665F;
+  --color-line-dark: rgba(248, 247, 243, 0.12);
+  --color-line-gold: rgba(198, 161, 91, 0.35);
+
+  /* Typography Stacks */
+  --font-display-condensed: 'Monument Grotesk Condensed', Impact, 'Arial Narrow', sans-serif;
+  --font-display: 'Monument Grotesk', 'Helvetica Neue', Arial, sans-serif;
+  --font-body: 'Söhne', Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Monument Grotesk Semi-Mono', 'SF Mono', Consolas, monospace;
+  --font-serif: 'Canela', 'Tiempos Headline', Didot, 'Bodoni MT', Georgia, serif;
+
+  /* Layout & Spacing */
+  --container-max: 1380px;
+  --page-pad-x: clamp(20px, 4vw, 64px);
+  --section-pad-y: clamp(72px, 8vw, 140px);
+
+  /* Cinematic Animation */
+  --ease-cinematic: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-ui: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 220ms;
+  --duration-medium: 450ms;
+  --duration-slow: 850ms;
+}
