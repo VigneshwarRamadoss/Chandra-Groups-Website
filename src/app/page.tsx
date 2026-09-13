@@ -5,6 +5,7 @@ import { Navigation } from '@/components/Navigation';
 import { Hero } from '@/components/Hero';
 import { TrustedClients } from '@/components/TrustedClients';
 import { Philosophy } from '@/components/Philosophy';
+import { About } from '@/components/About';
 import { FeaturedExperience } from '@/components/FeaturedExperience';
 import { EventExperiences } from '@/components/EventExperiences';
 import { Process } from '@/components/Process';
@@ -30,6 +31,9 @@ export default function Home() {
 
         {/* 02 — MORE THAN EVENTS / PHILOSOPHY */}
         <Philosophy />
+
+        {/* 02.5 — ABOUT CHANDRA / CINEMATIC SPLIT-SCREEN SCROLL STORY */}
+        <About />
 
         {/* 03 — FEATURED EXPERIENCE */}
         <FeaturedExperience onOpenCaseStudy={() => setCaseStudyOpen(true)} />

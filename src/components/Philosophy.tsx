@@ -90,7 +90,7 @@ export const Philosophy: React.FC = () => {
   return (
     <section
       ref={sectionRef}
-      id="about"
+      id="philosophy"
       aria-label="CHANDRA Philosophy"
       className="philosophy-section"
     >
