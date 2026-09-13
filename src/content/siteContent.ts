@@ -47,6 +47,7 @@ export const siteContent = {
         body: 'Creative thinking, production discipline and on-ground execution working toward one shared outcome.',
         image: '/media/about-01-role.jpg',
         imageAlt: 'Chandra production lead specialist conducting backstage venue walk-through in arena before doors open',
+        objectPosition: '55% center',
         placeholder: true, // Temporary design placeholder until official production shoot assets are supplied
       },
       {
@@ -58,6 +59,7 @@ export const siteContent = {
         body: 'Grounded in South India’s premier venues and production hubs, engineered to deliver ambitious experiences across the region and beyond.',
         image: '/media/about-02-roots.jpg',
         imageAlt: 'Chandra production crew managing on-ground stage load-in and truss alignment in arena hall',
+        objectPosition: 'center 60%',
         placeholder: true,
       },
       {
@@ -69,6 +71,7 @@ export const siteContent = {
         body: 'Every cue, crew, vendor and technical detail is coordinated so the experience feels effortless to the people in the room.',
         image: '/media/about-03-capability.jpg',
         imageAlt: 'Master lighting and timecode show-control console in operation behind the scenes',
+        objectPosition: 'center 40%',
         placeholder: true,
       },
       {
@@ -80,6 +83,7 @@ export const siteContent = {
         body: 'The people behind the show bring creative, technical and operational decisions together.',
         image: '/media/about-04-people.jpg',
         imageAlt: 'Chandra technical directors and production coordinators on stage during technical verification',
+        objectPosition: '40% center',
         placeholder: true,
         verifiedStats: [], // Ready for verified proof metrics once client provides audited business indicators
       },
@@ -92,6 +96,7 @@ export const siteContent = {
         body: 'The event ends. What people felt and remember is what stays.',
         image: '/media/about-05-experience.jpg',
         imageAlt: 'Live keynote arena audience captivated under warm champagne gold illumination at experience climax',
+        objectPosition: 'center 45%',
         placeholder: true,
       },
     ],

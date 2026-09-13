@@ -18,11 +18,12 @@ export const Philosophy: React.FC = () => {
       return;
     }
 
+    let animationFrameId: number;
     let ticking = false;
 
     const handleScroll = () => {
       if (!ticking) {
-        window.requestAnimationFrame(() => {
+        animationFrameId = window.requestAnimationFrame(() => {
           if (!sectionRef.current) {
             ticking = false;
             return;
@@ -63,6 +64,7 @@ export const Philosophy: React.FC = () => {
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
+      window.cancelAnimationFrame(animationFrameId);
     };
   }, []);
 

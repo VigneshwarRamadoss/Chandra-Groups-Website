@@ -25,7 +25,7 @@ export const About: React.FC = () => {
     return () => window.removeEventListener('resize', checkViewport);
   }, []);
 
-  // Desktop Scroll-Linked Opposing Physics (via requestAnimationFrame)
+  // Desktop Scroll-Linked Logic (via requestAnimationFrame)
   useEffect(() => {
     if (isMobile) return;
 
@@ -49,20 +49,18 @@ export const About: React.FC = () => {
             return;
           }
 
-          // Progress begins when section top reaches top of viewport (0.0)
-          // and ends when bottom of section reaches bottom of viewport (1.0)
           const currentScroll = -rect.top;
           const rawProgress = currentScroll / totalDistance;
           const clamped = Math.max(0, Math.min(1, rawProgress));
 
           setScrollProgress(clamped);
 
-          // Map progress to active chapter index (0 to 4)
+          const segment = 1 / numChapters;
           const chapterIdx = Math.min(
             numChapters - 1,
-            Math.max(0, Math.floor(clamped * numChapters * 0.999))
+            Math.max(0, Math.floor(clamped / segment))
           );
-          setActiveChapterIndex(chapterIdx);
+          setActiveChapterIndex((prev) => (prev !== chapterIdx ? chapterIdx : prev));
           
           ticking = false;
         });
@@ -103,53 +101,59 @@ export const About: React.FC = () => {
             {/* 5 Chapters Split-Screen Presentation Layer */}
             <div className="chandra-about__stage">
               {chapters.map((chapter, idx) => {
-                // Chapter progress calculations for smooth opposing travel & crossfade
-                const isEven = idx % 2 === 1; // 01: Text L/Media R, 02: Media L/Text R, 03: Text L/Media R...
+                const isEven = idx % 2 === 1;
                 
-                // Cinematic Crossfade & Motion Logic based on 5 equal scroll segments
-                const segment = 1 / numChapters; // 0.2
-                const segmentCenter = (idx + 0.5) * segment; // 0.1, 0.3, 0.5, 0.7, 0.9
-                const progressDelta = scrollProgress - segmentCenter;
+                const segment = 1 / numChapters;
+                const chapterStart = idx * segment;
                 
-                // Motion ranges from -1 to 1 across the chapter's visible area (approx 0.2 scroll)
-                const distanceRatio = 8;
-                const normalizedOffset = Math.max(-1, Math.min(1, progressDelta * distanceRatio));
-
-                // Fade boundaries
-                const transitionDuration = 0.06;
-                const halfTransition = transitionDuration / 2;
-                
-                const fadeStart = idx * segment - halfTransition;
-                const fullVisibleStart = idx * segment + halfTransition;
-                const fullVisibleEnd = (idx + 1) * segment - halfTransition;
-                const fadeEnd = (idx + 1) * segment + halfTransition;
+                let localProgress = (scrollProgress - chapterStart) / segment;
+                localProgress = Math.max(0, Math.min(1, localProgress));
 
                 let opacity = 0;
+                let textY = 0;
+                let mediaY = 0;
+
                 if (reducedMotion) {
                   opacity = idx === activeChapterIndex ? 1 : 0;
                 } else {
-                  if (scrollProgress >= fullVisibleStart && scrollProgress <= fullVisibleEnd) {
+                  if (localProgress <= 0) {
+                    opacity = 0;
+                    textY = 12;
+                    mediaY = 18;
+                  } else if (localProgress > 0 && localProgress < 0.15) {
+                    const enterProgress = localProgress / 0.15;
+                    opacity = enterProgress;
+                    textY = 12 * (1 - enterProgress);
+                    mediaY = 18 * (1 - enterProgress);
+                  } else if (localProgress >= 0.15 && localProgress <= 0.85) {
                     opacity = 1;
-                  } else if (scrollProgress >= fadeStart && scrollProgress < fullVisibleStart) {
-                    opacity = (scrollProgress - fadeStart) / transitionDuration;
-                  } else if (scrollProgress > fullVisibleEnd && scrollProgress <= fadeEnd) {
-                    opacity = 1 - ((scrollProgress - fullVisibleEnd) / transitionDuration);
+                    textY = 0;
+                    mediaY = 0;
+                  } else if (localProgress > 0.85 && localProgress < 1) {
+                    const exitProgress = (localProgress - 0.85) / 0.15;
+                    opacity = 1 - exitProgress;
+                    textY = -12 * exitProgress;
+                    mediaY = -18 * exitProgress;
+                  } else if (localProgress >= 1) {
+                    opacity = 0;
+                    textY = -12;
+                    mediaY = -18;
                   }
                   
-                  // Ensure first and last chapters are solid at the very top and bottom
-                  if (idx === 0 && scrollProgress <= fullVisibleStart) opacity = 1;
-                  if (idx === numChapters - 1 && scrollProgress >= fullVisibleEnd) opacity = 1;
-                  
-                  opacity = Math.max(0, Math.min(1, opacity));
+                  if (idx === 0 && scrollProgress <= 0) {
+                    opacity = 1;
+                    textY = 0;
+                    mediaY = 0;
+                  }
+                  if (idx === numChapters - 1 && scrollProgress >= 1) {
+                    opacity = 1;
+                    textY = 0;
+                    mediaY = 0;
+                  }
                 }
 
                 const isActive = opacity > 0.05 || idx === activeChapterIndex;
-
-                // Subtle Opposing Motion:
-                // Media travels slightly down to up (+3.5vh to -3.5vh)
-                // Content travels in opposing direction (-2.5vh to +2.5vh)
-                const mediaY = reducedMotion ? 0 : normalizedOffset * -3.5;
-                const contentY = reducedMotion ? 0 : normalizedOffset * 2.5;
+                const zIndex = idx === activeChapterIndex ? 2 : 1;
 
                 return (
                   <article
@@ -159,44 +163,33 @@ export const About: React.FC = () => {
                     } ${isActive ? 'is-active' : ''}`}
                     style={{
                       opacity: opacity,
+                      zIndex: zIndex,
                       pointerEvents: isActive ? 'auto' : 'none',
                       visibility: opacity > 0.01 ? 'visible' : 'hidden',
                     }}
                     aria-hidden={!isActive}
                   >
-                    {/* TEXT CONTENT PANEL (46% width) */}
+                    {/* TEXT CONTENT PANEL */}
                     <div
                       className="chandra-about__content-panel"
-                      style={{
-                        transform: `translate3d(0, ${contentY}vh, 0)`,
-                      }}
+                      style={{ transform: `translate3d(0, ${textY}px, 0)` }}
                     >
-                      {/* Chapter Metadata */}
                       <div className="chandra-about__meta-row">
                         <span className="chandra-about__meta-tag">{chapter.metadata}</span>
                       </div>
-
-                      {/* Headline */}
+                      
                       <h3 className="chandra-about__headline">
                         <span className="chandra-about__headline-line">{chapter.headlineLine1}</span>
                         <span className="chandra-about__headline-line">{chapter.headlineLine2}</span>
                       </h3>
 
-                      {/* Body Copy */}
-                      <p className="chandra-about__body">
-                        {chapter.body}
-                      </p>
-
-                      {/* Subtle Accent Rule */}
-                      <div className="chandra-about__accent-rule" aria-hidden="true" />
+                      <p className="chandra-about__body">{chapter.body}</p>
                     </div>
 
-                    {/* MEDIA PANEL (54% width) */}
+                    {/* MEDIA PANEL */}
                     <div
                       className="chandra-about__media-panel"
-                      style={{
-                        transform: `translate3d(0, ${mediaY}vh, 0)`,
-                      }}
+                      style={{ transform: `translate3d(0, ${mediaY}px, 0)` }}
                     >
                       <figure className="chandra-about__media-frame">
                         <img
@@ -204,13 +197,9 @@ export const About: React.FC = () => {
                           alt={chapter.imageAlt}
                           loading={idx === 0 ? 'eager' : 'lazy'}
                           className="chandra-about__image"
+                          style={{ objectPosition: (chapter as any).objectPosition || 'center' }}
                         />
                         <div className="chandra-about__media-vignette" aria-hidden="true" />
-                        
-                        {/* Restrained Chapter Stamp */}
-                        <div className="chandra-about__media-badge" aria-hidden="true">
-                          <span>{chapter.id} / 05</span>
-                        </div>
                       </figure>
                     </div>
                   </article>
@@ -230,9 +219,6 @@ export const About: React.FC = () => {
                   />
                 ))}
               </div>
-              <span className="chandra-about__counter">
-                {chapters[activeChapterIndex]?.id || '01'} / 05
-              </span>
             </footer>
           </div>
         </div>
@@ -271,6 +257,7 @@ export const About: React.FC = () => {
                     alt={chapter.imageAlt}
                     loading="lazy"
                     className="chandra-about__mobile-img"
+                    style={{ objectPosition: (chapter as any).objectPosition || 'center' }}
                   />
                   <div className="chandra-about__media-vignette" aria-hidden="true" />
                 </figure>
@@ -294,11 +281,10 @@ export const About: React.FC = () => {
 
         /* ------------------------------------------------------------
            DESKTOP STICKY SCROLL TRACK (≥ 1024px)
-           260vh calibrated scroll depth for comfortable, untrapped story
            ------------------------------------------------------------ */
         .chandra-about__desktop-track {
           position: relative;
-          height: 260vh;
+          height: 420vh;
           width: 100%;
           display: block;
         }
@@ -319,7 +305,7 @@ export const About: React.FC = () => {
           max-width: var(--container-max);
           margin: 0 auto;
           width: 100%;
-          padding: 40px var(--page-pad-x);
+          padding: 100px var(--page-pad-x) 56px;
           height: 100%;
           display: flex;
           flex-direction: column;
@@ -344,15 +330,14 @@ export const About: React.FC = () => {
           font-size: 11px;
           font-weight: 600;
           letter-spacing: 0.24em;
-          color: var(--color-gold);
+          color: rgba(255, 255, 255, 0.3);
           text-transform: uppercase;
         }
 
         .chandra-about__eyebrow-rule {
           width: 36px;
           height: 1px;
-          background-color: var(--color-gold);
-          opacity: 0.75;
+          background-color: rgba(255, 255, 255, 0.3);
         }
 
         /* Stage Container Holding the 5 Overlaid Chapter Articles */
@@ -369,12 +354,14 @@ export const About: React.FC = () => {
           position: absolute;
           inset: 0;
           display: grid;
-          grid-template-columns: 46% 54%;
-          gap: clamp(40px, 5vw, 84px);
+          gap: clamp(60px, 8vw, 120px);
           align-items: center;
         }
 
         /* Alternating Split-Screen Layouts */
+        .chandra-about__chapter--standard {
+          grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
+        }
         .chandra-about__chapter--standard .chandra-about__content-panel {
           grid-column: 1;
         }
@@ -383,7 +370,7 @@ export const About: React.FC = () => {
         }
 
         .chandra-about__chapter--reverse {
-          grid-template-columns: 54% 46%;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr);
         }
         .chandra-about__chapter--reverse .chandra-about__media-panel {
           grid-column: 1;
@@ -397,7 +384,7 @@ export const About: React.FC = () => {
           display: flex;
           flex-direction: column;
           gap: 16px;
-          max-width: 480px;
+          max-width: 500px;
           z-index: 2;
           will-change: transform;
         }
@@ -437,18 +424,10 @@ export const About: React.FC = () => {
         .chandra-about__body {
           font-family: var(--font-body);
           font-size: clamp(14.5px, 1.15vw, 16.5px);
-          line-height: 1.65;
+          line-height: 1.5;
           color: rgba(248, 247, 243, 0.82);
           margin: 0;
-          max-width: 440px;
-        }
-
-        .chandra-about__accent-rule {
-          width: 32px;
-          height: 1px;
-          background-color: var(--color-gold);
-          opacity: 0.65;
-          margin-top: 6px;
+          max-width: 460px;
         }
 
         /* Media Panel & Frame */
@@ -456,12 +435,16 @@ export const About: React.FC = () => {
           width: 100%;
           z-index: 1;
           will-change: transform;
+          display: flex;
+          justify-content: center;
         }
 
         .chandra-about__media-frame {
           position: relative;
-          width: 100%;
-          aspect-ratio: 16 / 10;
+          width: auto;
+          max-width: 34vw;
+          aspect-ratio: 4 / 5;
+          height: min(68svh, 680px);
           margin: 0;
           overflow: hidden;
           background-color: var(--color-charcoal);
@@ -495,26 +478,11 @@ export const About: React.FC = () => {
           pointer-events: none;
         }
 
-        .chandra-about__media-badge {
-          position: absolute;
-          bottom: 16px;
-          right: 18px;
-          z-index: 2;
-          font-family: var(--font-mono);
-          font-size: 10px;
-          letter-spacing: 0.2em;
-          color: var(--color-gold);
-          background-color: rgba(7, 8, 7, 0.75);
-          border: 1px solid rgba(198, 161, 91, 0.3);
-          padding: 4px 8px;
-          border-radius: 2px;
-        }
-
         /* Bottom Progress Counter & Ticks */
         .chandra-about__footer-nav {
           display: flex;
           align-items: center;
-          justify-content: space-between;
+          justify-content: flex-end;
           padding-bottom: 24px;
           z-index: 10;
         }
@@ -528,25 +496,18 @@ export const About: React.FC = () => {
         .chandra-about__tick {
           width: 24px;
           height: 2px;
-          background-color: rgba(248, 247, 243, 0.2);
+          background-color: rgba(248, 247, 243, 0.15);
           border-radius: 1px;
           transition: background-color 0.3s ease, width 0.3s ease;
         }
 
         .chandra-about__tick.is-active {
-          background-color: var(--color-gold);
+          background-color: rgba(198, 161, 91, 0.85);
           width: 36px;
         }
 
         .chandra-about__tick.is-passed {
-          background-color: rgba(198, 161, 91, 0.5);
-        }
-
-        .chandra-about__counter {
-          font-family: var(--font-mono);
-          font-size: 11px;
-          letter-spacing: 0.2em;
-          color: var(--color-gold);
+          background-color: rgba(198, 161, 91, 0.4);
         }
 
         /* ------------------------------------------------------------
@@ -625,7 +586,7 @@ export const About: React.FC = () => {
           .chandra-about__mobile-frame {
             position: relative;
             width: 100%;
-            aspect-ratio: 16 / 10;
+            aspect-ratio: 4 / 5;
             margin: 8px 0 0 0;
             border-radius: 4px;
             overflow: hidden;
