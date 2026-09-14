@@ -160,26 +160,27 @@ export const Hero: React.FC<HeroProps> = ({ onOpenEnquiry }) => {
 
       {/* Hero Foreground Content */}
       <div
+        className="hero-foreground"
         style={{
           position: 'relative',
           zIndex: 10,
           width: '100%',
-          maxWidth: 'var(--container-max)',
-          margin: '0 auto',
-          padding: '120px var(--page-pad-x) 60px',
-          display: 'flex',
+          padding:
+            'clamp(96px, 11vh, 128px) clamp(56px, 7.5vw, 144px) clamp(40px, 6vh, 72px)',
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 560px) auto',
           justifyContent: 'space-between',
-          alignItems: 'flex-start',
+          alignItems: 'center',
         }}
       >
         {/* Left Headline Block */}
-        <div style={{ maxWidth: '640px' }}>
+        <div style={{ maxWidth: '560px', width: '100%' }}>
           {/* Eyebrow */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '14px',
+              gap: '16px',
               marginBottom: '24px',
             }}
           >
@@ -208,11 +209,11 @@ export const Hero: React.FC<HeroProps> = ({ onOpenEnquiry }) => {
 
           {/* Architectural H1: MOVE PEOPLE */}
           <h1
+            className="hero-title"
             style={{
               fontFamily: 'var(--font-display-condensed)',
-              fontSize: 'clamp(56px, 10.5vw, 136px)',
               fontWeight: 700,
-              lineHeight: 0.9,
+              lineHeight: 0.88,
               letterSpacing: '-0.02em',
               textTransform: 'uppercase',
               color: 'var(--color-white)',
@@ -236,7 +237,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenEnquiry }) => {
               color: 'var(--color-white)',
               textTransform: 'uppercase',
               opacity: 0.9,
-              marginBottom: '48px',
+              marginBottom: '40px',
             }}
           >
             {siteContent.hero.descriptor}
@@ -263,7 +264,6 @@ export const Hero: React.FC<HeroProps> = ({ onOpenEnquiry }) => {
             alignItems: 'flex-end',
             textAlign: 'right',
             gap: '8px',
-            paddingTop: '12px',
           }}
         >
           {siteContent.hero.verticalMeta.map((item) => (
@@ -295,9 +295,22 @@ export const Hero: React.FC<HeroProps> = ({ onOpenEnquiry }) => {
       </div>
 
       <style jsx>{`
+        .hero-title {
+          font-size: clamp(48px, 10vw, 72px);
+        }
         @media (min-width: 1024px) {
+          .hero-title {
+            font-size: clamp(72px, min(7.5vw, 14vh), 132px);
+          }
           .hero-right-meta {
             display: flex !important;
+          }
+        }
+        @media (max-width: 1023px) {
+          .hero-foreground {
+            grid-template-columns: 1fr !important;
+            padding-left: var(--page-pad-x, 24px) !important;
+            padding-right: var(--page-pad-x, 24px) !important;
           }
         }
       `}</style>
