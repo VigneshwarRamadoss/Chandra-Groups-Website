@@ -121,12 +121,12 @@ export const Hero: React.FC<HeroProps> = ({ onOpenEnquiry }) => {
             inset: 0,
             width: '100%',
             height: '100%',
-            objectFit: 'contain',
+            objectFit: 'cover',
             objectPosition: 'center center',
             backgroundColor: '#070807',
           }}
         >
-          {/* Full 1920x1080 uncropped source streams */}
+          {/* Seamless full-bleed background media streams */}
           <source src="/media/hero-bg-desktop.webm" type="video/webm" />
           <source src="/media/hero-bg-desktop.mp4" type="video/mp4" />
           <source src="/media/Chandra Hero section BG.mp4" type="video/mp4" />
