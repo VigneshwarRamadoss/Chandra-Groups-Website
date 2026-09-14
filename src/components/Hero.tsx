@@ -89,11 +89,12 @@ export const Hero: React.FC<HeroProps> = ({ onOpenEnquiry }) => {
       aria-label="CHANDRA Hero"
       style={{
         position: 'relative',
-        minHeight: '100dvh',
+        width: '100vw',
+        minHeight: '100svh',
         display: 'flex',
         alignItems: 'center',
         overflow: 'hidden',
-        backgroundColor: 'var(--color-black)',
+        backgroundColor: '#070807',
       }}
     >
       {/* Background Media Layer */}
@@ -101,7 +102,10 @@ export const Hero: React.FC<HeroProps> = ({ onOpenEnquiry }) => {
         style={{
           position: 'absolute',
           inset: 0,
+          width: '100%',
+          height: '100%',
           zIndex: 1,
+          backgroundColor: '#070807',
         }}
       >
         <video
@@ -113,33 +117,31 @@ export const Hero: React.FC<HeroProps> = ({ onOpenEnquiry }) => {
           poster="/media/hero-poster-desktop.webp"
           aria-hidden="true"
           style={{
+            position: 'absolute',
+            inset: 0,
             width: '100%',
             height: '100%',
-            objectFit: 'cover',
-            objectPosition: '75% 45%',
-            filter: 'brightness(0.92) contrast(1.05)',
-            // Prevents layout shift by giving it a solid background color while loading
-            backgroundColor: 'var(--color-black)',
+            objectFit: 'contain',
+            objectPosition: 'center center',
+            backgroundColor: '#070807',
           }}
         >
-          {/* Mobile Optimized Assets (9:16 Crop) */}
-          <source media="(max-width: 767px)" src="/media/hero-bg-mobile.webm" type="video/webm" />
-          <source media="(max-width: 767px)" src="/media/hero-bg-mobile.mp4" type="video/mp4" />
-          
-          {/* Desktop Optimized Assets (16:9) */}
+          {/* Full 1920x1080 uncropped source streams */}
           <source src="/media/hero-bg-desktop.webm" type="video/webm" />
           <source src="/media/hero-bg-desktop.mp4" type="video/mp4" />
+          <source src="/media/Chandra Hero section BG.mp4" type="video/mp4" />
         </video>
 
-        {/* Art-Directed Contrast Gradient (Preserves Left Typography Readability) */}
+        {/* Existing Dark Gradient / Overlay (Preserves Left Typography Readability) */}
         <div
           aria-hidden="true"
           style={{
             position: 'absolute',
             inset: 0,
             background:
-              'linear-gradient(90deg, rgba(7,8,7,0.92) 0%, rgba(7,8,7,0.72) 35%, rgba(7,8,7,0.3) 65%, rgba(7,8,7,0.4) 100%)',
+              'linear-gradient(90deg, rgba(7,8,7,0.88) 0%, rgba(7,8,7,0.65) 35%, rgba(7,8,7,0.25) 65%, rgba(7,8,7,0.35) 100%)',
             pointerEvents: 'none',
+            zIndex: 2,
           }}
         />
         {/* Subtle Top & Bottom Vignette */}
@@ -151,6 +153,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenEnquiry }) => {
             background:
               'linear-gradient(180deg, rgba(7,8,7,0.6) 0%, transparent 20%, transparent 80%, rgba(7,8,7,0.95) 100%)',
             pointerEvents: 'none',
+            zIndex: 2,
           }}
         />
       </div>
@@ -161,6 +164,8 @@ export const Hero: React.FC<HeroProps> = ({ onOpenEnquiry }) => {
           position: 'relative',
           zIndex: 10,
           width: '100%',
+          maxWidth: 'var(--container-max)',
+          margin: '0 auto',
           padding: '120px var(--page-pad-x) 60px',
           display: 'flex',
           justifyContent: 'space-between',
