@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { siteContent } from '@/content/siteContent';
 
 interface HeroProps {
@@ -8,6 +8,81 @@ interface HeroProps {
 }
 
 export const Hero: React.FC<HeroProps> = ({ onOpenEnquiry }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    
+    // Initial check for reduced motion
+    if (mediaQuery.matches) {
+      video.pause();
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (mediaQuery.matches) return;
+          
+          if (entry.isIntersecting) {
+            // Play when Hero is substantially visible
+            video.play().catch(() => {
+              // Ignore play interruption errors
+            });
+          } else {
+            // Pause when offscreen
+            video.pause();
+          }
+        });
+      },
+      { threshold: 0.1 } // 10% visible
+    );
+
+    const currentSection = document.getElementById('home');
+    if (currentSection) {
+      observer.observe(currentSection);
+    }
+
+    const handleVisibilityChange = () => {
+      if (mediaQuery.matches) return;
+      
+      if (document.visibilityState === 'visible') {
+        const rect = video.getBoundingClientRect();
+        // Check if actually in viewport
+        if (rect.top < window.innerHeight && rect.bottom > 0) {
+          video.play().catch(() => {});
+        }
+      } else {
+        video.pause();
+      }
+    };
+
+    const handleMotionChange = (e: MediaQueryListEvent) => {
+      if (e.matches) {
+        video.pause();
+      } else {
+        // If motion is allowed now, and it's visible, play it
+        const rect = video.getBoundingClientRect();
+        if (rect.top < window.innerHeight && rect.bottom > 0 && document.visibilityState === 'visible') {
+          video.play().catch(() => {});
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    mediaQuery.addEventListener('change', handleMotionChange);
+
+    return () => {
+      if (currentSection) {
+        observer.unobserve(currentSection);
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      mediaQuery.removeEventListener('change', handleMotionChange);
+    };
+  }, []);
+
   return (
     <section
       id="home"
@@ -29,18 +104,32 @@ export const Hero: React.FC<HeroProps> = ({ onOpenEnquiry }) => {
           zIndex: 1,
         }}
       >
-        <img
-          src="/media/hero-poster.webp"
-          alt="Massive circular arena stage with glowing planetary screen and keynote speaker"
-          fetchPriority="high"
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          loop
+          playsInline
+          poster="/media/hero-poster-desktop.webp"
+          aria-hidden="true"
           style={{
             width: '100%',
             height: '100%',
             objectFit: 'cover',
             objectPosition: '75% 45%',
             filter: 'brightness(0.92) contrast(1.05)',
+            // Prevents layout shift by giving it a solid background color while loading
+            backgroundColor: 'var(--color-black)',
           }}
-        />
+        >
+          {/* Mobile Optimized Assets (9:16 Crop) */}
+          <source media="(max-width: 767px)" src="/media/hero-bg-mobile.webm" type="video/webm" />
+          <source media="(max-width: 767px)" src="/media/hero-bg-mobile.mp4" type="video/mp4" />
+          
+          {/* Desktop Optimized Assets (16:9) */}
+          <source src="/media/hero-bg-desktop.webm" type="video/webm" />
+          <source src="/media/hero-bg-desktop.mp4" type="video/mp4" />
+        </video>
 
         {/* Art-Directed Contrast Gradient (Preserves Left Typography Readability) */}
         <div
