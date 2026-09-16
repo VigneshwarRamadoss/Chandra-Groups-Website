@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Navigation } from '@/components/Navigation';
 import { Hero } from '@/components/Hero';
+import { Preloader } from '@/components/Preloader';
 import { TrustedClients } from '@/components/TrustedClients';
 import { Philosophy } from '@/components/Philosophy';
 import { About } from '@/components/About';
@@ -15,14 +16,72 @@ import { EnquiryModal } from '@/components/EnquiryModal';
 
 export default function Home() {
   const [enquiryOpen, setEnquiryOpen] = useState(false);
+  const [isPreloaderActive, setIsPreloaderActive] = useState(true);
+  const [isPreloaderComplete, setIsPreloaderComplete] = useState(false);
+  const [isMediaReady, setIsMediaReady] = useState(false);
+
+  // Read sessionStorage safely inside useEffect after client mount
+  useEffect(() => {
+    try {
+      const seen = sessionStorage.getItem('chandra_preloader_seen');
+      if (seen === 'true') {
+        setIsPreloaderActive(false);
+        setIsPreloaderComplete(true);
+        setIsMediaReady(true);
+        return;
+      }
+    } catch {
+      // Ignore storage access errors
+    }
+
+    // Safety fallback timer for slow networks (max 2.5s wait for video ready event)
+    const safetyTimer = setTimeout(() => {
+      setIsMediaReady(true);
+    }, 2500);
+
+    return () => clearTimeout(safetyTimer);
+  }, []);
+
+  const handleMediaReady = useCallback(() => {
+    setIsMediaReady(true);
+  }, []);
+
+  const handlePreloaderComplete = useCallback(() => {
+    setIsPreloaderComplete(true);
+    try {
+      sessionStorage.setItem('chandra_preloader_seen', 'true');
+    } catch {
+      // Ignore storage access errors
+    }
+    // Unmount Preloader layer after completion
+    setTimeout(() => {
+      setIsPreloaderActive(false);
+    }, 350);
+  }, []);
 
   return (
     <>
-      <Navigation onOpenEnquiry={() => setEnquiryOpen(true)} />
+      {/* 00 — CINEMATIC LOGO MASK PRELOADER */}
+      {isPreloaderActive && (
+        <Preloader
+          isMediaReady={isMediaReady}
+          onPreloaderComplete={handlePreloaderComplete}
+        />
+      )}
+
+      {/* HEADER NAVIGATION */}
+      <Navigation
+        onOpenEnquiry={() => setEnquiryOpen(true)}
+        isPreloaderComplete={isPreloaderComplete}
+      />
 
       <main id="main-content">
         {/* 01 — HERO */}
-        <Hero onOpenEnquiry={() => setEnquiryOpen(true)} />
+        <Hero
+          onOpenEnquiry={() => setEnquiryOpen(true)}
+          onMediaReady={handleMediaReady}
+          isPreloaderComplete={isPreloaderComplete}
+        />
 
         {/* 01.5 — TRUSTED CLIENTS RAIL */}
         <TrustedClients />

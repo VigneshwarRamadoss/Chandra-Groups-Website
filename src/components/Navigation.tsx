@@ -5,9 +5,13 @@ import { siteContent } from '@/content/siteContent';
 
 interface NavigationProps {
   onOpenEnquiry: () => void;
+  isPreloaderComplete?: boolean;
 }
 
-export const Navigation: React.FC<NavigationProps> = ({ onOpenEnquiry }) => {
+export const Navigation: React.FC<NavigationProps> = ({
+  onOpenEnquiry,
+  isPreloaderComplete = true,
+}) => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -37,7 +41,11 @@ export const Navigation: React.FC<NavigationProps> = ({ onOpenEnquiry }) => {
         left: 0,
         width: '100%',
         zIndex: 100,
-        transition: 'background-color 300ms ease, border-color 300ms ease',
+        opacity: isPreloaderComplete ? 1 : 0,
+        transform: isPreloaderComplete ? 'translateY(0)' : 'translateY(-6px)',
+        pointerEvents: isPreloaderComplete ? 'auto' : 'none',
+        transition:
+          'background-color 300ms ease, border-color 300ms ease, opacity 700ms ease, transform 700ms ease',
         backgroundColor: scrolled ? 'rgba(7, 8, 7, 0.94)' : 'transparent',
         borderBottom: scrolled ? '1px solid rgba(248, 247, 243, 0.08)' : '1px solid transparent',
       }}

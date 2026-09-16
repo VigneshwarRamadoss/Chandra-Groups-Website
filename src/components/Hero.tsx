@@ -5,14 +5,25 @@ import { siteContent } from '@/content/siteContent';
 
 interface HeroProps {
   onOpenEnquiry: () => void;
+  onMediaReady?: () => void;
+  isPreloaderComplete?: boolean;
 }
 
-export const Hero: React.FC<HeroProps> = ({ onOpenEnquiry }) => {
+export const Hero: React.FC<HeroProps> = ({
+  onOpenEnquiry,
+  onMediaReady,
+  isPreloaderComplete = true,
+}) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
+
+    // Check if media is already sufficiently loaded
+    if (video.readyState >= 2 && onMediaReady) {
+      onMediaReady();
+    }
 
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     
@@ -114,6 +125,8 @@ export const Hero: React.FC<HeroProps> = ({ onOpenEnquiry }) => {
           muted
           loop
           playsInline
+          onLoadedData={onMediaReady}
+          onCanPlay={onMediaReady}
           poster="/media/hero-poster-desktop.webp"
           aria-hidden="true"
           style={{
@@ -171,6 +184,10 @@ export const Hero: React.FC<HeroProps> = ({ onOpenEnquiry }) => {
           gridTemplateColumns: 'minmax(0, 560px) auto',
           justifyContent: 'space-between',
           alignItems: 'center',
+          opacity: isPreloaderComplete ? 1 : 0,
+          transform: isPreloaderComplete ? 'translateY(0)' : 'translateY(12px)',
+          transition:
+            'opacity 800ms cubic-bezier(0.16, 1, 0.3, 1), transform 800ms cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
         {/* Left Headline Block */}
