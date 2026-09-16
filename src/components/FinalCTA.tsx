@@ -23,30 +23,38 @@ export const FinalCTA: React.FC<FinalCTAProps> = ({ onOpenEnquiry }) => {
         backgroundColor: 'var(--color-black)',
       }}
     >
-      {/* Full-Bleed Finale Media Background */}
+      {/* Full-Bleed Finale Video Background */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
           zIndex: 1,
+          overflow: 'hidden',
         }}
+        aria-hidden="true"
       >
-        <img
-          src="/media/cta-finale.webp"
-          alt="Golden arena celebration finale with stage spotlight beams, sparkling confetti, and crowd cheering"
-          loading="lazy"
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          poster="/media/lets-create-poster.webp"
           style={{
+            position: 'absolute',
+            inset: 0,
             width: '100%',
             height: '100%',
             objectFit: 'cover',
-            objectPosition: 'center 40%',
-            filter: 'brightness(0.82) contrast(1.08)',
+            objectPosition: 'center center',
           }}
-        />
+        >
+          <source src="/media/lets-create-bg-desktop.webm" type="video/webm" />
+          <source src="/media/lets-create-bg-desktop.mp4" type="video/mp4" />
+        </video>
 
-        {/* Cinematic Vignette for Text Contrast */}
+        {/* Cinematic Dark Overlay for Text Contrast */}
         <div
-          aria-hidden="true"
           style={{
             position: 'absolute',
             inset: 0,
