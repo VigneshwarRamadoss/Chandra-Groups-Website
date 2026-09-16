@@ -12,11 +12,9 @@ import { Process } from '@/components/Process';
 import { FinalCTA } from '@/components/FinalCTA';
 import { Footer } from '@/components/Footer';
 import { EnquiryModal } from '@/components/EnquiryModal';
-import { CaseStudyModal } from '@/components/CaseStudyModal';
 
 export default function Home() {
   const [enquiryOpen, setEnquiryOpen] = useState(false);
-  const [caseStudyOpen, setCaseStudyOpen] = useState(false);
 
   return (
     <>
@@ -36,7 +34,7 @@ export default function Home() {
         <About />
 
         {/* 03 — FEATURED EXPERIENCE */}
-        <FeaturedExperience onOpenCaseStudy={() => setCaseStudyOpen(true)} />
+        <FeaturedExperience />
 
         {/* 04 — EVERY EVENT. A NEW STORY / EVENT EXPERIENCES */}
         <EventExperiences />
@@ -55,15 +53,6 @@ export default function Home() {
       <EnquiryModal
         isOpen={enquiryOpen}
         onClose={() => setEnquiryOpen(false)}
-      />
-
-      <CaseStudyModal
-        isOpen={caseStudyOpen}
-        onClose={() => setCaseStudyOpen(false)}
-        onOpenEnquiry={() => {
-          setCaseStudyOpen(false);
-          setEnquiryOpen(true);
-        }}
       />
     </>
   );
