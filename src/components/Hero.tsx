@@ -2,32 +2,42 @@
 
 import React, { useEffect, useRef } from 'react';
 import { siteContent } from '@/content/siteContent';
+import { Preloader } from './Preloader';
 
 interface HeroProps {
   onOpenEnquiry: () => void;
   onMediaReady?: () => void;
+
+  // Kept only so existing page.tsx does not break if it still passes this.
   isPreloaderComplete?: boolean;
 }
 
 export const Hero: React.FC<HeroProps> = ({
   onOpenEnquiry,
   onMediaReady,
-  isPreloaderComplete = true,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // THIS is now the scroll track.
+  const heroTrackRef = useRef<HTMLElement>(null);
+
+  // Preloader/GSAP directly controls this.
+  const foregroundRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    const hero = heroTrackRef.current;
 
-    // Check if media is already sufficiently loaded
-    if (video.readyState >= 2 && onMediaReady) {
-      onMediaReady();
+    if (!video || !hero) return;
+
+    if (video.readyState >= 2) {
+      onMediaReady?.();
     }
 
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    
-    // Initial check for reduced motion
+    const mediaQuery = window.matchMedia(
+      '(prefers-reduced-motion: reduce)'
+    );
+
     if (mediaQuery.matches) {
       video.pause();
     }
@@ -36,33 +46,31 @@ export const Hero: React.FC<HeroProps> = ({
       (entries) => {
         entries.forEach((entry) => {
           if (mediaQuery.matches) return;
-          
+
           if (entry.isIntersecting) {
-            // Play when Hero is substantially visible
-            video.play().catch(() => {
-              // Ignore play interruption errors
-            });
+            video.play().catch(() => {});
           } else {
-            // Pause when offscreen
             video.pause();
           }
         });
       },
-      { threshold: 0.1 } // 10% visible
+      {
+        threshold: 0.01,
+      }
     );
 
-    const currentSection = document.getElementById('home');
-    if (currentSection) {
-      observer.observe(currentSection);
-    }
+    observer.observe(hero);
 
     const handleVisibilityChange = () => {
       if (mediaQuery.matches) return;
-      
+
       if (document.visibilityState === 'visible') {
-        const rect = video.getBoundingClientRect();
-        // Check if actually in viewport
-        if (rect.top < window.innerHeight && rect.bottom > 0) {
+        const rect = hero.getBoundingClientRect();
+
+        if (
+          rect.bottom > 0 &&
+          rect.top < window.innerHeight
+        ) {
           video.play().catch(() => {});
         }
       } else {
@@ -70,264 +78,428 @@ export const Hero: React.FC<HeroProps> = ({
       }
     };
 
-    const handleMotionChange = (e: MediaQueryListEvent) => {
-      if (e.matches) {
+    const handleMotionChange = (
+      event: MediaQueryListEvent
+    ) => {
+      if (event.matches) {
         video.pause();
-      } else {
-        // If motion is allowed now, and it's visible, play it
-        const rect = video.getBoundingClientRect();
-        if (rect.top < window.innerHeight && rect.bottom > 0 && document.visibilityState === 'visible') {
-          video.play().catch(() => {});
-        }
+        return;
+      }
+
+      const rect = hero.getBoundingClientRect();
+
+      if (
+        rect.bottom > 0 &&
+        rect.top < window.innerHeight &&
+        document.visibilityState === 'visible'
+      ) {
+        video.play().catch(() => {});
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    mediaQuery.addEventListener('change', handleMotionChange);
+    document.addEventListener(
+      'visibilitychange',
+      handleVisibilityChange
+    );
+
+    mediaQuery.addEventListener(
+      'change',
+      handleMotionChange
+    );
 
     return () => {
-      if (currentSection) {
-        observer.unobserve(currentSection);
-      }
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      mediaQuery.removeEventListener('change', handleMotionChange);
+      observer.disconnect();
+
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibilityChange
+      );
+
+      mediaQuery.removeEventListener(
+        'change',
+        handleMotionChange
+      );
     };
-  }, []);
+  }, [onMediaReady]);
 
   return (
     <section
+      ref={heroTrackRef}
       id="home"
       aria-label="CHANDRA Hero"
-      style={{
-        position: 'relative',
-        width: '100vw',
-        minHeight: '100svh',
-        display: 'flex',
-        alignItems: 'center',
-        overflow: 'hidden',
-        backgroundColor: '#070807',
-      }}
+      className="hero-scroll-track"
     >
-      {/* Background Media Layer */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          width: '100%',
-          height: '100%',
-          zIndex: 1,
-          backgroundColor: '#070807',
-        }}
-      >
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          loop
-          playsInline
-          onLoadedData={onMediaReady}
-          onCanPlay={onMediaReady}
-          poster="/media/hero-poster-desktop.webp"
+      {/* =====================================================
+          ONE STICKY HERO STAGE
+          ===================================================== */}
+      <div className="hero-sticky-stage">
+
+        {/* =====================================================
+            HERO VIDEO — ALWAYS EXISTS UNDER THE MASK
+            ===================================================== */}
+        <div
+          className="hero-media"
           aria-hidden="true"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            objectPosition: 'center center',
-            backgroundColor: '#070807',
-          }}
         >
-          {/* Seamless full-bleed background media streams */}
-          <source src="/media/hero-bg-desktop.webm" type="video/webm" />
-          <source src="/media/hero-bg-desktop.mp4" type="video/mp4" />
-          <source src="/media/Chandra Hero section BG.mp4" type="video/mp4" />
-        </video>
+          <video
+            ref={videoRef}
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            onLoadedData={onMediaReady}
+            onCanPlay={onMediaReady}
+            poster="/media/hero-poster-desktop.webp"
+            className="hero-video"
+          >
+            <source
+              src="/media/hero-bg-desktop.webm"
+              type="video/webm"
+            />
 
-        {/* Existing Dark Gradient / Overlay (Preserves Left Typography Readability) */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background:
-              'linear-gradient(90deg, rgba(7,8,7,0.88) 0%, rgba(7,8,7,0.65) 35%, rgba(7,8,7,0.25) 65%, rgba(7,8,7,0.35) 100%)',
-            pointerEvents: 'none',
-            zIndex: 2,
-          }}
-        />
-        {/* Subtle Top & Bottom Vignette */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background:
-              'linear-gradient(180deg, rgba(7,8,7,0.6) 0%, transparent 20%, transparent 80%, rgba(7,8,7,0.95) 100%)',
-            pointerEvents: 'none',
-            zIndex: 2,
-          }}
-        />
-      </div>
+            <source
+              src="/media/hero-bg-desktop.mp4"
+              type="video/mp4"
+            />
 
-      {/* Hero Foreground Content */}
-      <div
-        className="hero-foreground"
-        style={{
-          position: 'relative',
-          zIndex: 10,
-          width: '100%',
-          padding:
-            'clamp(96px, 11vh, 128px) clamp(56px, 7.5vw, 144px) clamp(40px, 6vh, 72px)',
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 560px) auto',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          opacity: isPreloaderComplete ? 1 : 0,
-          transform: isPreloaderComplete ? 'translateY(0)' : 'translateY(12px)',
-          transition:
-            'opacity 800ms cubic-bezier(0.16, 1, 0.3, 1), transform 800ms cubic-bezier(0.16, 1, 0.3, 1)',
-        }}
-      >
-        {/* Left Headline Block */}
-        <div style={{ maxWidth: '560px', width: '100%' }}>
-          {/* Eyebrow */}
+            <source
+              src="/media/Chandra Hero section BG.mp4"
+              type="video/mp4"
+            />
+          </video>
+
+          {/* Existing horizontal gradient */}
+          <div className="hero-gradient-horizontal" />
+
+          {/* Existing top/bottom vignette */}
+          <div className="hero-gradient-vertical" />
+        </div>
+
+        {/* =====================================================
+            EXISTING HERO CONTENT
+            GSAP reveals this directly.
+            ===================================================== */}
+        <div
+          ref={foregroundRef}
+          className="hero-foreground"
+        >
+          {/* LEFT */}
           <div
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '16px',
-              marginBottom: '24px',
+              maxWidth: '560px',
+              width: '100%',
             }}
           >
-            <span
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: '11px',
-                fontWeight: 600,
-                letterSpacing: '0.24em',
-                color: 'var(--color-white)',
-                textTransform: 'uppercase',
-              }}
-            >
-              {siteContent.hero.eyebrow}
-            </span>
+            {/* Eyebrow */}
             <div
               style={{
-                width: '44px',
-                height: '1px',
-                backgroundColor: 'var(--color-gold)',
-                opacity: 0.85,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                marginBottom: '24px',
               }}
-              aria-hidden="true"
-            />
-          </div>
+            >
+              <span
+                style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  letterSpacing: '0.24em',
+                  color: 'var(--color-white)',
+                  textTransform: 'uppercase',
+                }}
+              >
+                {siteContent.hero.eyebrow}
+              </span>
 
-          {/* Architectural H1: MOVE PEOPLE */}
-          <h1
-            className="hero-title"
-            style={{
-              fontFamily: 'var(--font-display-condensed)',
-              fontWeight: 700,
-              lineHeight: 0.88,
-              letterSpacing: '-0.02em',
-              textTransform: 'uppercase',
-              color: 'var(--color-white)',
-              margin: '0 0 32px 0',
-              display: 'flex',
-              flexDirection: 'column',
-              userSelect: 'none',
-            }}
-          >
-            <span>{siteContent.hero.titleLine1}</span>
-            <span>{siteContent.hero.titleLine2}</span>
-          </h1>
+              <div
+                style={{
+                  width: '44px',
+                  height: '1px',
+                  backgroundColor:
+                    'var(--color-gold)',
+                  opacity: 0.85,
+                }}
+                aria-hidden="true"
+              />
+            </div>
 
-          {/* Descriptor */}
-          <p
-            style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: '12px',
-              fontWeight: 500,
-              letterSpacing: '0.22em',
-              color: 'var(--color-white)',
-              textTransform: 'uppercase',
-              opacity: 0.9,
-              marginBottom: '40px',
-            }}
-          >
-            {siteContent.hero.descriptor}
-          </p>
+            {/* Headline */}
+            <h1 className="hero-title">
+              <span>
+                {siteContent.hero.titleLine1}
+              </span>
 
-          {/* Primary CTA */}
-          <div>
+              <span>
+                {siteContent.hero.titleLine2}
+              </span>
+            </h1>
+
+            {/* Descriptor */}
+            <p
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: '12px',
+                fontWeight: 500,
+                letterSpacing: '0.22em',
+                color: 'var(--color-white)',
+                textTransform: 'uppercase',
+                opacity: 0.9,
+                marginBottom: '40px',
+              }}
+            >
+              {siteContent.hero.descriptor}
+            </p>
+
+            {/* CTA */}
             <button
               onClick={onOpenEnquiry}
               className="btn-primary-gold"
               aria-label="Let's Create an Event with Chandra"
             >
-              <span>{siteContent.hero.cta}</span>
+              <span>
+                {siteContent.hero.cta}
+              </span>
             </button>
+          </div>
+
+          {/* RIGHT META */}
+          <div className="hero-right-meta">
+            {siteContent.hero.verticalMeta.map(
+              (item) => (
+                <span
+                  key={item}
+                  style={{
+                    fontFamily:
+                      'var(--font-mono)',
+                    fontSize: '10px',
+                    fontWeight: 500,
+                    letterSpacing: '0.18em',
+                    color:
+                      'var(--color-white)',
+                    opacity: 0.7,
+                    textTransform:
+                      'uppercase',
+                  }}
+                >
+                  {item}
+                </span>
+              )
+            )}
+
+            <div
+              style={{
+                width: '1px',
+                height: '32px',
+                backgroundColor:
+                  'rgba(248,247,243,.3)',
+                marginTop: '8px',
+              }}
+            />
           </div>
         </div>
 
-        {/* Right Stage & Technical Microcopy (Desktop Only) */}
-        <div
-          className="hero-right-meta"
-          style={{
-            display: 'none',
-            flexDirection: 'column',
-            alignItems: 'flex-end',
-            textAlign: 'right',
-            gap: '8px',
-          }}
-        >
-          {siteContent.hero.verticalMeta.map((item) => (
-            <span
-              key={item}
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '10px',
-                fontWeight: 500,
-                letterSpacing: '0.18em',
-                color: 'var(--color-white)',
-                opacity: 0.7,
-                textTransform: 'uppercase',
-              }}
-            >
-              {item}
-            </span>
-          ))}
-          <div
-            style={{
-              width: '1px',
-              height: '32px',
-              backgroundColor: 'rgba(248, 247, 243, 0.3)',
-              marginTop: '8px',
-            }}
-            aria-hidden="true"
-          />
-        </div>
+        {/* =====================================================
+            PRELOADER IS NOT A SECTION ANYMORE.
+            IT IS ONLY AN OVERLAY INSIDE HERO.
+            ===================================================== */}
+        <Preloader
+          introTrackRef={heroTrackRef}
+          heroForegroundRef={foregroundRef}
+        />
       </div>
 
       <style jsx>{`
-        .hero-title {
-          font-size: clamp(48px, 10vw, 72px);
+        /*
+         * This is the ONLY scroll distance for the entrance.
+         *
+         * Hero itself is the track.
+         * No extra intro section exists.
+         */
+        .hero-scroll-track {
+          position: relative;
+          width: 100%;
+          height: 300svh;
+          background: #070807;
         }
+
+        /*
+         * The visible Hero stays on screen while the
+         * user scrolls through the reveal.
+         */
+        .hero-sticky-stage {
+          position: sticky;
+          top: 0;
+          width: 100%;
+          height: 100svh;
+          overflow: hidden;
+          background: #070807;
+        }
+
+        .hero-media {
+          position: absolute;
+          inset: 0;
+          z-index: 1;
+          overflow: hidden;
+          background: #070807;
+        }
+
+        .hero-video {
+          position: absolute;
+          inset: 0;
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          object-position: center center;
+          background: #070807;
+        }
+
+        .hero-gradient-horizontal {
+          position: absolute;
+          inset: 0;
+          z-index: 2;
+          pointer-events: none;
+
+          background:
+            linear-gradient(
+              90deg,
+              rgba(7, 8, 7, 0.88) 0%,
+              rgba(7, 8, 7, 0.65) 35%,
+              rgba(7, 8, 7, 0.25) 65%,
+              rgba(7, 8, 7, 0.35) 100%
+            );
+        }
+
+        .hero-gradient-vertical {
+          position: absolute;
+          inset: 0;
+          z-index: 2;
+          pointer-events: none;
+
+          background:
+            linear-gradient(
+              180deg,
+              rgba(7, 8, 7, 0.6) 0%,
+              transparent 20%,
+              transparent 80%,
+              rgba(7, 8, 7, 0.95) 100%
+            );
+        }
+
+        .hero-foreground {
+          position: relative;
+          z-index: 10;
+
+          width: 100%;
+          height: 100%;
+
+          padding:
+            clamp(96px, 11vh, 128px)
+            clamp(56px, 7.5vw, 144px)
+            clamp(40px, 6vh, 72px);
+
+          display: grid;
+          grid-template-columns:
+            minmax(0, 560px) auto;
+
+          justify-content: space-between;
+          align-items: center;
+
+          /*
+           * Critical:
+           * GSAP owns these properties.
+           */
+          opacity: 0;
+          transform: translateY(12px);
+          pointer-events: none;
+
+          will-change:
+            opacity,
+            transform;
+        }
+
+        .hero-title {
+          margin: 0 0 32px;
+
+          display: flex;
+          flex-direction: column;
+
+          font-family:
+            var(--font-display-condensed);
+
+          font-size:
+            clamp(48px, 10vw, 72px);
+
+          font-weight: 700;
+          line-height: 0.88;
+          letter-spacing: -0.02em;
+
+          text-transform: uppercase;
+          color: var(--color-white);
+
+          user-select: none;
+        }
+
+        .hero-right-meta {
+          display: none;
+
+          flex-direction: column;
+          align-items: flex-end;
+
+          text-align: right;
+
+          gap: 8px;
+        }
+
         @media (min-width: 1024px) {
           .hero-title {
-            font-size: clamp(72px, min(7.5vw, 14vh), 132px);
+            font-size:
+              clamp(
+                72px,
+                min(7.5vw, 14vh),
+                132px
+              );
           }
+
           .hero-right-meta {
-            display: flex !important;
+            display: flex;
           }
         }
+
         @media (max-width: 1023px) {
           .hero-foreground {
-            grid-template-columns: 1fr !important;
-            padding-left: var(--page-pad-x, 24px) !important;
-            padding-right: var(--page-pad-x, 24px) !important;
+            grid-template-columns: 1fr;
+
+            padding-left:
+              var(--page-pad-x, 24px);
+
+            padding-right:
+              var(--page-pad-x, 24px);
+          }
+        }
+
+        /*
+         * Touch needs less distance,
+         * but still enough to feel like an experience.
+         */
+        @media (max-width: 767px) {
+          .hero-scroll-track {
+            height: 220svh;
+          }
+        }
+
+        /*
+         * Accessibility:
+         * no giant scroll track when reduced motion
+         * is requested.
+         */
+        @media (
+          prefers-reduced-motion: reduce
+        ) {
+          .hero-scroll-track {
+            height: 100svh;
           }
         }
       `}</style>

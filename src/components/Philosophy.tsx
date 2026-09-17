@@ -1,93 +1,298 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { siteContent } from '@/content/siteContent';
+
+if (typeof window !== 'undefined') {
+  gsap.registerPlugin(ScrollTrigger);
+}
 
 export const Philosophy: React.FC = () => {
   const sectionRef = useRef<HTMLElement>(null);
+
+  const introTitleRef = useRef<HTMLDivElement>(null);
   const visualRef = useRef<HTMLDivElement>(null);
-  const [progress, setProgress] = useState(0);
-  const [textVisible, setTextVisible] = useState(false);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Check prefers-reduced-motion
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReducedMotion) {
-      setProgress(1);
-      setTextVisible(true);
+    const section = sectionRef.current;
+    const introTitle = introTitleRef.current;
+    const visual = visualRef.current;
+    const image = imageRef.current;
+    const content = contentRef.current;
+
+    if (
+      !section ||
+      !introTitle ||
+      !visual ||
+      !image ||
+      !content
+    ) {
       return;
     }
 
-    let animationFrameId: number;
-    let ticking = false;
+    const reducedMotion = window.matchMedia(
+      '(prefers-reduced-motion: reduce)'
+    );
 
-    const handleScroll = () => {
-      if (!ticking) {
-        animationFrameId = window.requestAnimationFrame(() => {
-          if (!sectionRef.current) {
-            ticking = false;
-            return;
-          }
+    /*
+     * ============================================================
+     * REDUCED MOTION
+     * ============================================================
+     */
+    if (reducedMotion.matches) {
+      gsap.set(introTitle, {
+        opacity: 0,
+      });
 
-          const rect = sectionRef.current.getBoundingClientRect();
-          const windowHeight = window.innerHeight;
+      gsap.set(visual, {
+        left: '42%',
+        top: '0%',
+        xPercent: 0,
+        yPercent: 0,
+        scale: 1,
+      });
 
-          // Trigger text reveal when section enters comfortable viewing range
-          if (rect.top <= windowHeight * 0.85) {
-            setTextVisible(true);
-          }
+      gsap.set(content, {
+        opacity: 1,
+        x: 0,
+        pointerEvents: 'auto',
+      });
 
-          // Compute normalized scroll progress through this section (0.00 -> 1.00)
-          // Starts transforming when section enters viewport, completes near bottom of section
-          const startScroll = windowHeight * 0.8;
-          const endScroll = -rect.height * 0.25;
-          const currentPos = rect.top;
+      gsap.set(image, {
+        scale: 1,
+      });
 
-          const rawProgress = (startScroll - currentPos) / (startScroll - endScroll);
-          const clampedProgress = Math.max(0, Math.min(1, rawProgress));
+      return;
+    }
 
-          setProgress(clampedProgress);
+    const ctx = gsap.context(() => {
+      /*
+       * ============================================================
+       * INITIAL STATE
+       * ============================================================
+       *
+       * IMPORTANT:
+       *
+       * The image container ALREADY has its final aspect ratio:
+       *
+       * 58% viewport width
+       * 100svh height
+       *
+       * We only SCALE it down.
+       *
+       * Therefore:
+       *
+       * rectangle → rectangle
+       *
+       * NOT:
+       *
+       * rectangle → square → full-height rectangle
+       */
 
-          // Update CSS custom property for high-performance direct rendering
-          if (visualRef.current) {
-            visualRef.current.style.setProperty('--scroll-progress', clampedProgress.toFixed(3));
-          }
+      gsap.set(introTitle, {
+        opacity: 1,
+      });
 
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
+      gsap.set(visual, {
+        left: '50%',
+        top: '56%',
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll(); // Initial evaluation
+        xPercent: -50,
+        yPercent: -50,
+
+        scale: 0.58,
+      });
+
+      gsap.set(image, {
+        scale: 1.04,
+      });
+
+      /*
+       * Final copy hidden initially.
+       */
+      gsap.set(content, {
+        opacity: 0,
+        x: -28,
+        pointerEvents: 'none',
+      });
+
+      /*
+       * ============================================================
+       * SCROLL TIMELINE
+       * ============================================================
+       */
+
+      const timeline = gsap.timeline({
+        defaults: {
+          ease: 'none',
+        },
+
+        scrollTrigger: {
+          trigger: section,
+
+          start: 'top top',
+          end: 'bottom bottom',
+
+          scrub: 0.45,
+
+          invalidateOnRefresh: true,
+
+          onUpdate: (self) => {
+            content.style.pointerEvents =
+              self.progress >= 0.65
+                ? 'auto'
+                : 'none';
+          },
+        },
+      });
+
+      /*
+       * ============================================================
+       * 0.00 → 0.18
+       *
+       * HOLD
+       *
+       * Large OUR PHILOSOPHY stays clearly visible.
+       * ============================================================
+       */
+
+      timeline.to(
+        {},
+        {
+          duration: 0.18,
+        }
+      );
+
+      /*
+       * ============================================================
+       * 0.18 → 0.36
+       *
+       * OUR PHILOSOPHY fades IN PLACE.
+       *
+       * NO Y MOVEMENT.
+       * NO SLIDING BEHIND NAVBAR.
+       * ============================================================
+       */
+
+      timeline.to(
+        introTitle,
+        {
+          opacity: 0,
+          duration: 0.18,
+          ease: 'none',
+        },
+        0.18
+      );
+
+      /*
+       * Image begins coming toward the viewer.
+       *
+       * Same aspect ratio.
+       */
+      timeline.to(
+        visual,
+        {
+          scale: 0.68,
+          duration: 0.18,
+          ease: 'power1.inOut',
+        },
+        0.18
+      );
+
+      /*
+       * ============================================================
+       * 0.30 → 0.68
+       *
+       * IMAGE EXPANDS + MOVES TO RIGHT.
+       *
+       * Because its actual width/height never change,
+       * there is NO shape morph.
+       * ============================================================
+       */
+
+      timeline.to(
+        visual,
+        {
+          left: '42%',
+          top: '0%',
+
+          xPercent: 0,
+          yPercent: 0,
+
+          scale: 1,
+
+          duration: 0.38,
+
+          ease: 'power2.inOut',
+        },
+        0.30
+      );
+
+      /*
+       * Internal image settles as container expands.
+       */
+      timeline.to(
+        image,
+        {
+          scale: 1,
+          duration: 0.38,
+          ease: 'power2.inOut',
+        },
+        0.30
+      );
+
+      /*
+       * ============================================================
+       * 0.54 → 0.80
+       *
+       * LEFT PHILOSOPHY COPY ENTERS.
+       * ============================================================
+       */
+
+      timeline.to(
+        content,
+        {
+          opacity: 1,
+          x: 0,
+
+          duration: 0.26,
+
+          ease: 'power2.out',
+        },
+        0.54
+      );
+
+      /*
+       * ============================================================
+       * 0.80 → 1.00
+       *
+       * FINAL SPLIT HOLD
+       * ============================================================
+       */
+
+      timeline.to(
+        {},
+        {
+          duration: 0.20,
+        },
+        0.80
+      );
+    }, section);
+
+    const refreshFrame =
+      requestAnimationFrame(() => {
+        ScrollTrigger.refresh();
+      });
 
     return () => {
-      window.removeEventListener('scroll', handleScroll);
-      window.cancelAnimationFrame(animationFrameId);
+      cancelAnimationFrame(refreshFrame);
+      ctx.revert();
     };
   }, []);
-
-  // Micro words visibility based on progress
-  const word1Opacity = Math.max(0, Math.min(1, (progress - 0.22) / 0.16));
-  const word2Opacity = Math.max(0, Math.min(1, (progress - 0.40) / 0.16));
-  const word3Opacity = Math.max(0, Math.min(1, (progress - 0.58) / 0.16));
-
-  // Technical blueprint overlay fade (1.0 -> 0.0 by progress 0.42)
-  // Individual marks inside are calibrated to 8-15% opacity
-  const technicalOverlayFade = Math.max(0, 1 - progress * 2.38);
-
-  // Atmosphere lighting activation (0% -> 55% between progress 0.25 and 0.85)
-  const atmosphereOpacity = Math.max(0, Math.min(0.55, (progress - 0.22) * 0.85));
-
-  // Final controlled stage light activation (activates between 0.65 -> 1.0)
-  const stageLightOpacity = Math.max(0, Math.min(0.45, (progress - 0.65) * 1.28));
-
-  // Image filter & transform interpolation
-  const scale = (1.035 - progress * 0.035).toFixed(4);
-  const translateY = ((progress - 0.5) * 32).toFixed(1);
-  const brightness = (0.72 + progress * 0.30).toFixed(2);
-  const saturate = (0.68 + progress * 0.47).toFixed(2);
 
   return (
     <section
@@ -96,549 +301,844 @@ export const Philosophy: React.FC = () => {
       aria-label="CHANDRA Philosophy"
       className="philosophy-section"
     >
-      <div className="philosophy-container">
-        {/* Left Content Block: ~34% of width */}
+      {/* ==========================================================
+          STICKY VIEWPORT
+          ========================================================== */}
+
+      <div className="philosophy-stage">
+
+        {/* ========================================================
+            INITIAL LARGE TITLE
+            ======================================================== */}
+
         <div
-          className={`philosophy-content ${textVisible ? 'is-visible' : ''}`}
+          ref={introTitleRef}
+          className="philosophy-intro-title"
         >
-          {/* Eyebrow */}
+          <span className="intro-index">
+            01
+          </span>
+
+          <span className="intro-label">
+            {siteContent.philosophy.eyebrow}
+          </span>
+
+          <span
+            className="intro-rule"
+            aria-hidden="true"
+          />
+        </div>
+
+        {/* ========================================================
+            FINAL LEFT CONTENT
+            ======================================================== */}
+
+        <div
+          ref={contentRef}
+          className="philosophy-content"
+        >
+          {/* Small eyebrow retains ORIGINAL size */}
           <div className="philosophy-eyebrow">
-            <span>{siteContent.philosophy.eyebrow}</span>
-            <div className="philosophy-rule" aria-hidden="true" />
+            <span>
+              {siteContent.philosophy.eyebrow}
+            </span>
+
+            <div
+              className="philosophy-rule"
+              aria-hidden="true"
+            />
           </div>
 
-          {/* Primary Headline: Emotional Display Serif */}
+          {/* Headline */}
           <h2 className="philosophy-headline">
-            <span className="headline-line">{siteContent.philosophy.headlineLine1}</span>
-            <span className="headline-line">{siteContent.philosophy.headlineLine2}</span>
+            <span>
+              {
+                siteContent.philosophy
+                  .headlineLine1
+              }
+            </span>
+
+            <span>
+              {
+                siteContent.philosophy
+                  .headlineLine2
+              }
+            </span>
           </h2>
 
-          {/* Supporting Statement */}
+          {/* Supporting statement */}
           <p className="philosophy-subline">
             {siteContent.philosophy.subline}
           </p>
 
-          {/* Body Copy */}
+          {/* Body */}
           <p className="philosophy-body">
             {siteContent.philosophy.body}
           </p>
 
-          {/* CTA: SEE OUR APPROACH → */}
-          <div className="philosophy-cta-wrapper">
-            <a
-              href="#approach"
-              className="philosophy-cta-link"
-              aria-label="See Our Approach to Experiences"
-            >
-              <span>{siteContent.philosophy.cta}</span>
-            </a>
-          </div>
+          {/* CTA */}
+          <a
+            href="#approach"
+            className="philosophy-cta"
+            aria-label="See Our Approach to Experiences"
+          >
+            <span>
+              {siteContent.philosophy.cta}
+            </span>
+
+            <span aria-hidden="true">
+              →
+            </span>
+          </a>
         </div>
 
-        {/* Right Visual: ~52% of width with intentional negative space */}
-        <div className="philosophy-visual-col" ref={visualRef}>
-          <div className="cinematic-frame">
-            {/* Primary Backstage Production Image */}
-            <div
-              className="image-transform-wrapper"
-              style={{
-                transform: `scale(${scale}) translateY(${translateY}px)`,
-                filter: `brightness(${brightness}) saturate(${saturate}) contrast(1.06)`,
-              }}
-            >
-              <img
-                src="/media/philosophy-production.webp"
-                alt="Chandra production specialist moving backstage through an illuminated corridor toward the live stage"
-                loading="lazy"
-                className="cinematic-img"
-              />
-            </div>
+        {/* ========================================================
+            IMAGE
 
-            {/* Inset Vignette to anchor deep blacks */}
-            <div className="cinematic-vignette" aria-hidden="true" />
+            One single panel.
 
-            {/* STATE 01 — INTENTION: Technical Production Blueprint Overlays */}
-            <div
-              className="technical-overlay"
-              style={{ opacity: technicalOverlayFade }}
-              aria-hidden="true"
-            >
-              {/* Corner Crop Marks */}
-              <div className="crop-mark top-left" />
-              <div className="crop-mark top-right" />
-              <div className="crop-mark bottom-left" />
-              <div className="crop-mark bottom-right" />
+            Its aspect ratio NEVER changes.
 
-              {/* Faint Construction Grid Lines */}
-              <div className="grid-line-h" style={{ top: '38%' }} />
-              <div className="grid-line-h" style={{ top: '74%' }} />
-              <div className="grid-line-v" style={{ left: '32%' }} />
-              <div className="grid-line-v" style={{ left: '68%' }} />
+            Start:
+            centred + scale(.58)
 
-              {/* Technical Reference Points & Crosshairs */}
-              <div className="ref-crosshair" style={{ top: '38%', left: '32%' }}>
-                <span>+</span>
-                <span className="ref-tag">STG · GRID 01</span>
-              </div>
-              <div className="ref-crosshair" style={{ top: '74%', left: '68%' }}>
-                <span>+</span>
-                <span className="ref-tag">AXIS · Z 180</span>
-              </div>
+            End:
+            right side + scale(1)
+            ======================================================== */}
 
-              {/* State 01 Micro Labels */}
-              <span className="micro-label" style={{ top: '24px', left: '26px' }}>IDEA</span>
-              <span className="micro-label" style={{ top: '24px', right: '26px' }}>SPACE</span>
-              <span className="micro-label" style={{ bottom: '26px', left: '26px' }}>LIGHT</span>
-              <span className="micro-label" style={{ bottom: '26px', right: '26px' }}>PEOPLE</span>
-            </div>
+        <div
+          ref={visualRef}
+          className="philosophy-visual"
+        >
+          <img
+            ref={imageRef}
+            src="/media/philosophy-production.webp"
+            alt="Chandra production specialist moving backstage through an illuminated corridor toward the live stage"
+            loading="lazy"
+            className="philosophy-image"
+          />
 
-            {/* STATE 02 — ATMOSPHERE: Warm Amber Practical Lighting Layer */}
-            <div
-              className="atmosphere-lighting"
-              style={{ opacity: atmosphereOpacity }}
-              aria-hidden="true"
-            />
+          {/* Cinematic vignette */}
+          <div
+            className="philosophy-vignette"
+            aria-hidden="true"
+          />
 
-            {/* STATE 03 — IMPACT: Activated Stage Light at the Corridor Portal */}
-            <div
-              className="stage-light-activation"
-              style={{ opacity: stageLightOpacity }}
-              aria-hidden="true"
-            />
+          {/* Subtle edge treatment */}
+          <div
+            className="philosophy-edge-gradient"
+            aria-hidden="true"
+          />
 
-            {/* Quiet Production Annotations: IDEAS, PEOPLE, EXPERIENCES (Revealed sequentially) */}
-            <div className="production-annotations" aria-hidden="true">
-              <div
-                className="annotation-item"
-                style={{
-                  opacity: word1Opacity,
-                  transform: `translateY(${(1 - word1Opacity) * 8}px)`,
-                }}
-              >
-                <span className="annotation-marker" />
-                <span className="annotation-text">IDEAS</span>
-              </div>
-              <div
-                className="annotation-item"
-                style={{
-                  opacity: word2Opacity,
-                  transform: `translateY(${(1 - word2Opacity) * 8}px)`,
-                }}
-              >
-                <span className="annotation-marker" />
-                <span className="annotation-text">PEOPLE</span>
-              </div>
-              <div
-                className="annotation-item"
-                style={{
-                  opacity: word3Opacity,
-                  transform: `translateY(${(1 - word3Opacity) * 8}px)`,
-                }}
-              >
-                <span className="annotation-marker" />
-                <span className="annotation-text">EXPERIENCES</span>
-              </div>
-            </div>
+          {/* Existing visual words */}
+          <div
+            className="philosophy-image-meta"
+            aria-hidden="true"
+          >
+            <span>IDEAS</span>
+            <span>PEOPLE</span>
+            <span>EXPERIENCES</span>
           </div>
         </div>
       </div>
 
       <style jsx>{`
+        /* ========================================================
+           SCROLL TRACK
+           ======================================================== */
+
         .philosophy-section {
-          background-color: var(--color-ivory);
-          color: var(--color-black);
           position: relative;
-          min-height: clamp(750px, 115vh, 1050px);
-          padding: clamp(72px, 8vh, 110px) var(--page-pad-x);
-          display: flex;
-          align-items: center;
-          overflow: hidden;
+
+          width: 100%;
+          height: 240svh;
+
+          background:
+            var(--color-ivory);
+
+          color:
+            var(--color-black);
         }
 
-        .philosophy-container {
+        .philosophy-stage {
+          position: sticky;
+
+          top: 0;
+
           width: 100%;
-          max-width: var(--container-max);
-          margin: 0 auto;
+          height: 100svh;
+
+          overflow: hidden;
+
+          background:
+            var(--color-ivory);
+        }
+
+        /* ========================================================
+           INITIAL "OUR PHILOSOPHY"
+           ======================================================== */
+
+        .philosophy-intro-title {
+          position: absolute;
+
+          /*
+           * Intentionally below fixed navbar.
+           *
+           * It will fade IN PLACE rather than
+           * travelling underneath the navbar.
+           */
+          top:
+            clamp(
+              118px,
+              15vh,
+              160px
+            );
+
+          left: 50%;
+
+          transform:
+            translateX(-50%);
+
+          z-index: 20;
+
+          display: flex;
+          align-items: center;
+
+          gap: 18px;
+
+          white-space: nowrap;
+
+          will-change:
+            opacity;
+        }
+
+        .intro-index {
+          font-family:
+            var(--font-mono);
+
+          font-size: 10px;
+
+          font-weight: 500;
+
+          letter-spacing: 0.18em;
+
+          color:
+            var(--color-gold);
+
+          opacity: 0.85;
+        }
+
+        /*
+         * BIGGER INITIAL TITLE
+         *
+         * Previously around 13–16px.
+         * Now intentionally more editorial.
+         */
+        .intro-label {
+          font-family:
+            var(--font-body);
+
+          font-size:
+            clamp(
+              20px,
+              1.7vw,
+              27px
+            );
+
+          font-weight: 600;
+
+          letter-spacing:
+            0.25em;
+
+          line-height: 1;
+
+          text-transform: uppercase;
+
+          color:
+            var(--color-black);
+        }
+
+        .intro-rule {
+          width: 52px;
+          height: 1px;
+
+          background:
+            var(--color-gold);
+
+          opacity: 0.75;
+        }
+
+        /* ========================================================
+           FINAL LEFT CONTENT
+           ======================================================== */
+
+        .philosophy-content {
+          position: absolute;
+
+          z-index: 10;
+
+          left: 0;
+          top: 0;
+
+          width: 42%;
+          height: 100%;
+
+          padding:
+            clamp(
+              100px,
+              12vh,
+              138px
+            )
+            clamp(
+              48px,
+              6vw,
+              110px
+            )
+            clamp(
+              56px,
+              7vh,
+              84px
+            );
+
           display: flex;
           flex-direction: column;
-          gap: 56px;
-          align-items: center;
+
+          justify-content: center;
+
+          will-change:
+            opacity,
+            transform;
         }
 
-        /* Desktop Asymmetric Split */
-        @media (min-width: 992px) {
-          .philosophy-container {
-            flex-direction: row;
-            justify-content: space-between;
-            align-items: center;
-            gap: clamp(48px, 6vw, 100px);
-          }
-        }
+        /* ========================================================
+           FINAL SMALL EYEBROW
 
-        /* Left Editorial Copy Block: ~35% of width */
-        .philosophy-content {
-          width: 100%;
-          max-width: 500px;
-          opacity: 0;
-          transform: translateY(16px);
-          transition: opacity 0.75s var(--ease-cinematic), transform 0.75s var(--ease-cinematic);
-        }
+           IMPORTANT:
+           Keep original section font size.
+           ======================================================== */
 
-        .philosophy-content.is-visible {
-          opacity: 1;
-          transform: translateY(0);
-        }
-
-        @media (min-width: 992px) {
-          .philosophy-content {
-            flex: 0 0 35%;
-            max-width: 480px;
-          }
-        }
-
-        /* Eyebrow */
         .philosophy-eyebrow {
           display: flex;
+
           align-items: center;
+
           gap: 16px;
+
           margin-bottom: 22px;
         }
 
         .philosophy-eyebrow span {
-          font-family: var(--font-body);
+          font-family:
+            var(--font-body);
+
+          /*
+           * ORIGINAL SIZE RETAINED.
+           */
           font-size: 11px;
+
           font-weight: 500;
+
           letter-spacing: 0.22em;
-          color: var(--color-black);
+
+          color:
+            var(--color-black);
+
           text-transform: uppercase;
         }
 
         .philosophy-rule {
           width: 36px;
           height: 1px;
-          background-color: var(--color-gold);
+
+          background:
+            var(--color-gold);
+
           opacity: 0.85;
         }
 
-        /* Primary Headline: Canela Serif — Exactly 2 Lines */
+        /* ========================================================
+           HEADLINE
+           ======================================================== */
+
         .philosophy-headline {
-          font-family: var(--font-serif);
-          font-size: clamp(42px, 5vw, 68px);
-          font-weight: 400;
-          line-height: 0.96;
-          letter-spacing: -0.022em;
-          color: var(--color-black);
-          margin: 0 0 24px 0;
+          margin:
+            0 0 24px;
+
           display: flex;
           flex-direction: column;
+
+          font-family:
+            var(--font-serif);
+
+          font-size:
+            clamp(
+              42px,
+              5vw,
+              68px
+            );
+
+          font-weight: 400;
+
+          line-height: 0.96;
+
+          letter-spacing:
+            -0.022em;
+
+          color:
+            var(--color-black);
         }
 
-        .headline-line {
+        .philosophy-headline span {
           display: block;
-          white-space: nowrap;
         }
 
-        /* Supporting Statement */
+        /* ========================================================
+           SUPPORTING STATEMENT
+           ======================================================== */
+
         .philosophy-subline {
-          font-family: var(--font-body);
+          max-width: 430px;
+
+          margin:
+            0 0 20px;
+
+          font-family:
+            var(--font-body);
+
           font-size: 11.5px;
+
           font-weight: 600;
+
+          line-height: 1.5;
+
           letter-spacing: 0.2em;
-          color: var(--color-black);
+
           text-transform: uppercase;
-          margin: 0 0 20px 0;
+
+          color:
+            var(--color-black);
         }
 
-        /* Minimal Body Copy */
         .philosophy-body {
-          font-family: var(--font-body);
-          font-size: clamp(14.5px, 1.1vw, 16.5px);
-          line-height: 1.65;
-          color: var(--color-muted-light);
-          margin: 0 0 32px 0;
           max-width: 440px;
+
+          margin:
+            0 0 32px;
+
+          font-family:
+            var(--font-body);
+
+          font-size:
+            clamp(
+              14.5px,
+              1.1vw,
+              16.5px
+            );
+
+          line-height: 1.65;
+
+          color:
+            var(--color-muted-light);
         }
 
-        /* CTA: SEE OUR APPROACH → */
-        .philosophy-cta-wrapper {
-          display: inline-block;
-        }
+        /* ========================================================
+           CTA
+           ======================================================== */
 
-        .philosophy-cta-link {
+        .philosophy-cta {
+          width: fit-content;
+
           display: inline-flex;
+
           align-items: center;
-          font-family: var(--font-body);
-          font-size: 11.5px;
-          font-weight: 600;
-          letter-spacing: 0.18em;
-          color: var(--color-black);
-          text-decoration: none;
-          text-transform: uppercase;
+
+          gap: 14px;
+
           position: relative;
+
           padding-bottom: 6px;
-          transition: color 0.3s ease;
+
+          font-family:
+            var(--font-body);
+
+          font-size: 11.5px;
+
+          font-weight: 600;
+
+          letter-spacing: 0.18em;
+
+          text-transform: uppercase;
+
+          text-decoration: none;
+
+          color:
+            var(--color-black);
         }
 
-        .philosophy-cta-link::after {
+        .philosophy-cta::after {
           content: '';
+
           position: absolute;
-          bottom: 0;
+
           left: 0;
+          bottom: 0;
+
           width: 100%;
           height: 1px;
-          background-color: var(--color-gold);
-          transform: scaleX(0.4);
-          transform-origin: left;
-          transition: transform 0.4s var(--ease-cinematic), background-color 0.3s ease;
+
+          background:
+            var(--color-gold);
+
+          transform:
+            scaleX(0.4);
+
+          transform-origin:
+            left;
+
+          transition:
+            transform
+            0.4s
+            var(--ease-cinematic);
         }
 
-        .philosophy-cta-link:hover::after {
-          transform: scaleX(1);
-          background-color: var(--color-black);
+        .philosophy-cta:hover::after {
+          transform:
+            scaleX(1);
         }
 
-        /* Right Visual Column: ~52% of width */
-        .philosophy-visual-col {
-          width: 100%;
-          max-width: 580px;
-        }
+        /* ========================================================
+           IMAGE
 
-        @media (min-width: 992px) {
-          .philosophy-visual-col {
-            flex: 0 0 52%;
-            max-width: 620px;
-            /* Allow image to sit slightly higher than text block as requested */
-            transform: translateY(-20px);
-          }
-        }
+           CRITICAL CHANGE:
 
-        /* Cinematic Vertical Frame */
-        .cinematic-frame {
-          position: relative;
-          width: 100%;
-          aspect-ratio: 3 / 4;
-          overflow: hidden;
-          background-color: var(--color-charcoal);
-          border: 1px solid rgba(7, 8, 7, 0.08);
-          box-shadow: 0 16px 40px -12px rgba(7, 8, 7, 0.07);
-        }
+           Width + height remain CONSTANT.
 
-        .image-transform-wrapper {
+           Only transform changes.
+
+           Therefore there is no rectangle →
+           square → rectangle morph.
+           ======================================================== */
+
+        .philosophy-visual {
           position: absolute;
-          inset: -4%;
-          width: 108%;
-          height: 108%;
-          will-change: transform, filter;
-          transition: filter 0.25s linear;
+
+          z-index: 5;
+
+          /*
+           * FINAL SIZE EXISTS FROM FRAME 1.
+           *
+           * Starting visual only SCALEs this
+           * same rectangular panel down.
+           */
+          width: 58%;
+          height: 100svh;
+
+          overflow: hidden;
+
+          background:
+            var(--color-charcoal);
+
+          transform-origin:
+            center center;
+
+          will-change:
+            left,
+            top,
+            transform;
         }
 
-        .cinematic-img {
+        .philosophy-image {
+          position: absolute;
+
+          inset: 0;
+
           width: 100%;
           height: 100%;
-          object-fit: cover;
-          object-position: center 38%;
+
           display: block;
+
+          object-fit: cover;
+
+          /*
+           * Keep existing composition.
+           */
+          object-position:
+            center 38%;
+
+          will-change:
+            transform;
         }
 
-        /* Inset Vignette */
-        .cinematic-vignette {
+        /* ========================================================
+           IMAGE VIGNETTE
+           ======================================================== */
+
+        .philosophy-vignette {
           position: absolute;
+
           inset: 0;
-          background: linear-gradient(
-            180deg,
-            rgba(7, 8, 7, 0.35) 0%,
-            transparent 35%,
-            rgba(7, 8, 7, 0.2) 65%,
-            rgba(7, 8, 7, 0.55) 100%
-          );
-          pointer-events: none;
+
           z-index: 2;
+
+          pointer-events: none;
+
+          background:
+            linear-gradient(
+              180deg,
+
+              rgba(
+                7,
+                8,
+                7,
+                0.25
+              )
+              0%,
+
+              transparent
+              32%,
+
+              transparent
+              68%,
+
+              rgba(
+                7,
+                8,
+                7,
+                0.55
+              )
+              100%
+            );
         }
 
-        /* STATE 01 — INTENTION: Subtle Production Geometry */
-        .technical-overlay {
+        /* ========================================================
+           LEFT IMAGE EDGE
+           ======================================================== */
+
+        .philosophy-edge-gradient {
           position: absolute;
+
           inset: 0;
-          pointer-events: none;
+
           z-index: 3;
-          will-change: opacity;
-          transition: opacity 0.2s linear;
-        }
 
-        /* Corner Crop Marks */
-        .crop-mark {
-          position: absolute;
-          width: 14px;
-          height: 14px;
-          border-color: rgba(248, 247, 243, 0.45);
-          border-style: solid;
-        }
-
-        .crop-mark.top-left {
-          top: 18px;
-          left: 18px;
-          border-width: 1px 0 0 1px;
-        }
-
-        .crop-mark.top-right {
-          top: 18px;
-          right: 18px;
-          border-width: 1px 1px 0 0;
-        }
-
-        .crop-mark.bottom-left {
-          bottom: 18px;
-          left: 18px;
-          border-width: 0 0 1px 1px;
-        }
-
-        .crop-mark.bottom-right {
-          bottom: 18px;
-          right: 18px;
-          border-width: 0 1px 1px 0;
-        }
-
-        /* Faint Construction Lines */
-        .grid-line-h {
-          position: absolute;
-          left: 18px;
-          right: 18px;
-          height: 1px;
-          background: repeating-linear-gradient(
-            to right,
-            rgba(248, 247, 243, 0.25) 0px,
-            rgba(248, 247, 243, 0.25) 6px,
-            transparent 6px,
-            transparent 12px
-          );
-        }
-
-        .grid-line-v {
-          position: absolute;
-          top: 18px;
-          bottom: 18px;
-          width: 1px;
-          background: repeating-linear-gradient(
-            to bottom,
-            rgba(248, 247, 243, 0.25) 0px,
-            rgba(248, 247, 243, 0.25) 6px,
-            transparent 6px,
-            transparent 12px
-          );
-        }
-
-        /* Reference Crosshairs */
-        .ref-crosshair {
-          position: absolute;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          color: rgba(248, 247, 243, 0.45);
-          font-family: var(--font-mono);
-          font-size: 9px;
-          transform: translate(-4px, -6px);
-        }
-
-        .ref-tag {
-          letter-spacing: 0.16em;
-          text-transform: uppercase;
-        }
-
-        /* Micro Labels (State 01) */
-        .micro-label {
-          position: absolute;
-          font-family: var(--font-mono);
-          font-size: 9.5px;
-          letter-spacing: 0.24em;
-          color: rgba(248, 247, 243, 0.45);
-          text-transform: uppercase;
-        }
-
-        /* STATE 02 — ATMOSPHERE: Warm Practical Light Radial Overlay */
-        .atmosphere-lighting {
-          position: absolute;
-          inset: 0;
-          background: radial-gradient(
-            circle at 50% 48%,
-            rgba(198, 161, 91, 0.38) 0%,
-            rgba(216, 181, 115, 0.18) 45%,
-            transparent 75%
-          );
-          mix-blend-mode: screen;
           pointer-events: none;
-          z-index: 4;
-          will-change: opacity;
-          transition: opacity 0.25s linear;
+
+          background:
+            linear-gradient(
+              90deg,
+
+              rgba(
+                7,
+                8,
+                7,
+                0.14
+              )
+              0%,
+
+              transparent
+              16%
+            );
         }
 
-        /* STATE 03 — IMPACT: Subtly Activated Stage Light */
-        .stage-light-activation {
+        /* ========================================================
+           IMAGE META
+           ======================================================== */
+
+        .philosophy-image-meta {
           position: absolute;
-          inset: 0;
-          background: radial-gradient(
-            ellipse 55% 50% at 50% 32%,
-            rgba(255, 230, 180, 0.45) 0%,
-            rgba(198, 161, 91, 0.2) 40%,
-            transparent 75%
-          );
-          mix-blend-mode: screen;
-          pointer-events: none;
+
+          right:
+            clamp(
+              24px,
+              3vw,
+              48px
+            );
+
+          bottom:
+            clamp(
+              24px,
+              4vh,
+              48px
+            );
+
           z-index: 5;
-          will-change: opacity;
-          transition: opacity 0.25s linear;
-        }
 
-        /* Quiet Production Annotations: IDEAS · PEOPLE · EXPERIENCES */
-        .production-annotations {
-          position: absolute;
-          bottom: 36px;
-          right: 32px;
           display: flex;
+
           flex-direction: column;
+
           align-items: flex-end;
-          gap: 10px;
-          z-index: 6;
+
+          gap: 7px;
+
           pointer-events: none;
         }
 
-        .annotation-item {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          will-change: opacity, transform;
-          transition: opacity 0.25s ease, transform 0.25s ease;
-        }
+        .philosophy-image-meta span {
+          font-family:
+            var(--font-mono);
 
-        .annotation-marker {
-          width: 4px;
-          height: 4px;
-          border-radius: 50%;
-          background-color: var(--color-gold);
-          box-shadow: 0 0 6px rgba(198, 161, 91, 0.6);
-        }
+          font-size: 9px;
 
-        .annotation-text {
-          font-family: var(--font-mono);
-          font-size: 10px;
           font-weight: 500;
-          letter-spacing: 0.22em;
-          color: var(--color-white);
+
+          letter-spacing:
+            0.22em;
+
+          color:
+            rgba(
+              248,
+              247,
+              243,
+              0.72
+            );
+
           text-transform: uppercase;
         }
 
-        /* Mobile Adjustments */
-        @media (max-width: 991px) {
+        /* ========================================================
+           MOBILE / TABLET
+
+           Keep mobile natural instead of forcing
+           desktop cinematic scroll choreography.
+           ======================================================== */
+
+        @media (max-width: 900px) {
           .philosophy-section {
-            min-height: auto;
-            padding: clamp(64px, 8vw, 90px) var(--page-pad-x);
+            height: auto;
+
+            padding:
+              72px
+              var(
+                --page-pad-x,
+                24px
+              );
           }
 
-          .philosophy-visual-col {
-            transform: none !important;
+          .philosophy-stage {
+            position: relative;
+
+            height: auto;
+
+            overflow: visible;
+
+            display: flex;
+
+            flex-direction: column;
+
+            gap: 36px;
           }
 
-          .cinematic-frame {
-            aspect-ratio: 4 / 5;
+          .philosophy-intro-title {
+            position: relative;
+
+            top: auto;
+            left: auto;
+
+            transform:
+              none !important;
+
+            opacity:
+              1 !important;
+
+            align-self:
+              flex-start;
+
+            order: 1;
+          }
+
+          /*
+           * Slightly smaller than desktop
+           * but still stronger than old version.
+           */
+          .intro-label {
+            font-size:
+              clamp(
+                18px,
+                5vw,
+                24px
+              );
+          }
+
+          .philosophy-visual {
+            position: relative !important;
+
+            left: auto !important;
+            top: auto !important;
+
+            width: 100% !important;
+
+            /*
+             * Mobile gets stable image ratio.
+             */
+            height: auto !important;
+
+            aspect-ratio:
+              4 / 5;
+
+            transform:
+              none !important;
+
+            order: 2;
+          }
+
+          .philosophy-image {
+            transform:
+              none !important;
+          }
+
+          .philosophy-content {
+            position: relative;
+
+            left: auto;
+            top: auto;
+
+            width: 100%;
+            height: auto;
+
+            padding: 0;
+
+            opacity:
+              1 !important;
+
+            transform:
+              none !important;
+
+            pointer-events:
+              auto !important;
+
+            order: 3;
+          }
+
+          .philosophy-headline {
+            font-size:
+              clamp(
+                42px,
+                11vw,
+                62px
+              );
+          }
+
+          .philosophy-image-meta {
+            right: 18px;
+            bottom: 18px;
+          }
+        }
+
+        /* ========================================================
+           REDUCED MOTION
+           ======================================================== */
+
+        @media (
+          prefers-reduced-motion:
+            reduce
+        ) {
+          .philosophy-section {
+            height: 100svh;
+          }
+
+          .philosophy-intro-title {
+            display: none;
           }
         }
       `}</style>

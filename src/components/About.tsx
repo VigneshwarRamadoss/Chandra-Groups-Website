@@ -5,6 +5,7 @@ import { siteContent } from '@/content/siteContent';
 
 export const About: React.FC = () => {
   const sectionRef = useRef<HTMLElement>(null);
+
   const [scrollProgress, setScrollProgress] = useState(0);
   const [activeChapterIndex, setActiveChapterIndex] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
@@ -13,67 +14,91 @@ export const About: React.FC = () => {
   const chapters = siteContent.about.chapters;
   const numChapters = chapters.length;
 
-  // Viewport & Reduced Motion Detection
+  // ------------------------------------------------------------
+  // Viewport + Reduced Motion Detection
+  // ------------------------------------------------------------
   useEffect(() => {
     const checkViewport = () => {
       setIsMobile(window.innerWidth < 1024);
-      setReducedMotion(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      setReducedMotion(
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      );
     };
 
     checkViewport();
-    window.addEventListener('resize', checkViewport, { passive: true });
-    return () => window.removeEventListener('resize', checkViewport);
+
+    window.addEventListener('resize', checkViewport, {
+      passive: true,
+    });
+
+    return () => {
+      window.removeEventListener('resize', checkViewport);
+    };
   }, []);
 
-  // Desktop Scroll-Linked Logic (via requestAnimationFrame)
+  // ------------------------------------------------------------
+  // Desktop Scroll Tracking
+  // ------------------------------------------------------------
   useEffect(() => {
     if (isMobile) return;
 
-    let animationFrameId: number;
+    let animationFrameId = 0;
     let ticking = false;
 
     const handleScroll = () => {
-      if (!ticking) {
-        animationFrameId = window.requestAnimationFrame(() => {
-          if (!sectionRef.current) {
-            ticking = false;
-            return;
-          }
+      if (ticking) return;
 
-          const rect = sectionRef.current.getBoundingClientRect();
-          const windowHeight = window.innerHeight;
-          const totalDistance = rect.height - windowHeight;
+      ticking = true;
 
-          if (totalDistance <= 0) {
-            ticking = false;
-            return;
-          }
-
-          const currentScroll = -rect.top;
-          const rawProgress = currentScroll / totalDistance;
-          const clamped = Math.max(0, Math.min(1, rawProgress));
-
-          setScrollProgress(clamped);
-
-          const segment = 1 / numChapters;
-          const chapterIdx = Math.min(
-            numChapters - 1,
-            Math.max(0, Math.floor(clamped / segment))
-          );
-          setActiveChapterIndex((prev) => (prev !== chapterIdx ? chapterIdx : prev));
-          
+      animationFrameId = window.requestAnimationFrame(() => {
+        if (!sectionRef.current) {
           ticking = false;
-        });
-        ticking = true;
-      }
+          return;
+        }
+
+        const rect = sectionRef.current.getBoundingClientRect();
+        const windowHeight = window.innerHeight;
+        const totalDistance = rect.height - windowHeight;
+
+        if (totalDistance <= 0) {
+          ticking = false;
+          return;
+        }
+
+        const currentScroll = -rect.top;
+
+        const rawProgress = Math.max(
+          0,
+          Math.min(1, currentScroll / totalDistance)
+        );
+
+        setScrollProgress(rawProgress);
+
+        const segment = 1 / numChapters;
+
+        const currentIdx = Math.min(
+          numChapters - 1,
+          Math.max(0, Math.floor(rawProgress / segment))
+        );
+
+        setActiveChapterIndex(currentIdx);
+
+        ticking = false;
+      });
     };
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('scroll', handleScroll, {
+      passive: true,
+    });
+
     handleScroll();
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
-      window.cancelAnimationFrame(animationFrameId);
+
+      if (animationFrameId) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
     };
   }, [isMobile, numChapters]);
 
@@ -84,131 +109,291 @@ export const About: React.FC = () => {
       aria-label="About CHANDRA"
       className="chandra-about"
     >
-      {/* DESKTOP TRUE SPLIT-SCREEN VIEW (≥ 1024px) */}
-      <div className="chandra-about__desktop-track" aria-hidden={isMobile}>
+      {/* ============================================================
+          DESKTOP TWO-STEP STORY SCROLL
+          ============================================================ */}
+      <div
+        className="chandra-about__desktop-track"
+        aria-hidden={isMobile}
+      >
         <div className="chandra-about__sticky-viewport">
-          
-          {/* Top Fixed Section Eyebrow (Protected Safe Area) */}
-          <header className="chandra-about__header" aria-hidden="true">
+          {/* Section Header */}
+          <header
+            className="chandra-about__header"
+            aria-hidden="true"
+          >
             <div className="chandra-about__eyebrow-row">
               <span className="chandra-about__eyebrow">
                 02 / {siteContent.about.eyebrow}
               </span>
+
               <div className="chandra-about__eyebrow-rule" />
             </div>
           </header>
 
-          {/* Unified Stage: 1fr 1fr Grid (Same Row, Identical Midpoint Y) */}
+          {/* Main Story Stage */}
           <div className="chandra-about__stage-container">
             <div className="chandra-about__stage">
               {chapters.map((chapter, idx) => {
-                // Chapters alternate horizontally only:
-                // 01: Media Left, Text Right
-                // 02: Text Left, Media Right
-                // 03: Media Left, Text Right
-                // 04: Text Left, Media Right
-                // 05: Media Left, Text Right
-                const isEven = idx % 2 === 1; // idx 1, 3 are even (02, 04) -> Text Left, Media Right
-                
-                const segment = 1 / numChapters;
-                const chapterStart = idx * segment;
-                
-                let localProgress = (scrollProgress - chapterStart) / segment;
-                localProgress = Math.max(0, Math.min(1, localProgress));
+                // 01 / 03 / 05 => media left
+                // 02 / 04 => media right
+                const isEven = idx % 2 === 1;
 
-                let opacity = 0;
-                let textY = 0;
-                let mediaY = 0;
+                const segment = 1 / numChapters;
+
+                // 0 -> 1 inside each chapter
+                const rawLocal =
+                  (scrollProgress - idx * segment) / segment;
+
+                let imageOpacity = 0;
+                let textOpacity = 0;
+                let textY = 18;
+                let imageScale = 1;
 
                 if (reducedMotion) {
-                  opacity = idx === activeChapterIndex ? 1 : 0;
+                  const isActive =
+                    idx === activeChapterIndex;
+
+                  imageOpacity = isActive ? 1 : 0;
+                  textOpacity = isActive ? 1 : 0;
+                  textY = 0;
+                  imageScale = 1;
                 } else {
-                  if (localProgress <= 0) {
-                    opacity = 0;
-                    textY = 12;
-                    mediaY = 16;
-                  } else if (localProgress > 0 && localProgress < 0.15) {
-                    const enterProgress = localProgress / 0.15;
-                    opacity = enterProgress;
-                    textY = 12 * (1 - enterProgress);
-                    mediaY = 16 * (1 - enterProgress);
-                  } else if (localProgress >= 0.15 && localProgress <= 0.85) {
-                    opacity = 1;
-                    textY = 0;
-                    mediaY = 0;
-                  } else if (localProgress > 0.85 && localProgress < 1) {
-                    const exitProgress = (localProgress - 0.85) / 0.15;
-                    opacity = 1 - exitProgress;
-                    textY = -12 * exitProgress;
-                    mediaY = -16 * exitProgress;
-                  } else if (localProgress >= 1) {
-                    opacity = 0;
-                    textY = -12;
-                    mediaY = -16;
+                  // ------------------------------------------------
+                  // IMAGE
+                  // ------------------------------------------------
+
+                  // Enter
+                  if (
+                    rawLocal >= -0.15 &&
+                    rawLocal < 0.05
+                  ) {
+                    imageOpacity =
+                      (rawLocal + 0.15) / 0.2;
                   }
-                  
-                  // Boundary edge cases
-                  if (idx === 0 && scrollProgress <= 0) {
-                    opacity = 1;
-                    textY = 0;
-                    mediaY = 0;
+
+                  // Hold
+                  else if (
+                    rawLocal >= 0.05 &&
+                    rawLocal <= 0.85
+                  ) {
+                    imageOpacity = 1;
                   }
-                  if (idx === numChapters - 1 && scrollProgress >= 1) {
-                    opacity = 1;
+
+                  // Exit
+                  else if (
+                    rawLocal > 0.85 &&
+                    rawLocal <= 1.05
+                  ) {
+                    imageOpacity =
+                      1 -
+                      (rawLocal - 0.85) / 0.2;
+                  }
+
+                  // Outside chapter range
+                  else {
+                    imageOpacity = 0;
+                  }
+
+                  // ------------------------------------------------
+                  // TEXT — SECOND STEP
+                  // ------------------------------------------------
+
+                  // Image-only phase
+                  if (
+                    rawLocal < 0.38 ||
+                    rawLocal > 0.98
+                  ) {
+                    textOpacity = 0;
+                    textY = 18;
+                  }
+
+                  // Reveal
+                  else if (
+                    rawLocal >= 0.38 &&
+                    rawLocal < 0.54
+                  ) {
+                    const revealT =
+                      (rawLocal - 0.38) / 0.16;
+
+                    textOpacity = revealT;
+                    textY = 18 * (1 - revealT);
+                  }
+
+                  // Hold
+                  else if (
+                    rawLocal >= 0.54 &&
+                    rawLocal <= 0.8
+                  ) {
+                    textOpacity = 1;
                     textY = 0;
-                    mediaY = 0;
+                  }
+
+                  // Exit
+                  else if (
+                    rawLocal > 0.8 &&
+                    rawLocal <= 0.98
+                  ) {
+                    const exitT =
+                      (rawLocal - 0.8) / 0.18;
+
+                    textOpacity = 1 - exitT;
+                    textY = -10 * exitT;
+                  }
+
+                  // ------------------------------------------------
+                  // SUBTLE IMAGE ZOOM
+                  // ------------------------------------------------
+
+                  const scaleProgress = Math.max(
+                    0,
+                    Math.min(
+                      1,
+                      (rawLocal + 0.1) / 0.9
+                    )
+                  );
+
+                  imageScale =
+                    1 + scaleProgress * 0.048;
+
+                  // First chapter initial state
+                  if (
+                    idx === 0 &&
+                    scrollProgress <= 0
+                  ) {
+                    imageOpacity = 1;
+                    imageScale = 1;
+                    textOpacity = 0;
+                    textY = 18;
+                  }
+
+                  // Last chapter final state
+                  if (
+                    idx === numChapters - 1 &&
+                    scrollProgress >= 1
+                  ) {
+                    imageOpacity = 1;
+                    textOpacity = 1;
+                    textY = 0;
+                    imageScale = 1.048;
                   }
                 }
 
-                const isActive = opacity > 0.05 || idx === activeChapterIndex;
-                const zIndex = idx === activeChapterIndex ? 2 : 1;
+                const isActive =
+                  idx === activeChapterIndex;
+
+                const isChapterVisible =
+                  imageOpacity > 0.01 ||
+                  textOpacity > 0.01;
 
                 return (
                   <article
                     key={chapter.id}
-                    className={`chandra-about__chapter ${
-                      isEven ? 'chandra-about__chapter--text-left' : 'chandra-about__chapter--media-left'
-                    } ${isActive ? 'is-active' : ''}`}
+                    className={[
+                      'chandra-about__chapter',
+                      isEven
+                        ? 'chandra-about__chapter--text-left'
+                        : 'chandra-about__chapter--media-left',
+                      isActive ? 'is-active' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
                     style={{
-                      opacity: opacity,
-                      zIndex: zIndex,
-                      pointerEvents: isActive ? 'auto' : 'none',
-                      visibility: opacity > 0.01 ? 'visible' : 'hidden',
+                      visibility:
+                        isChapterVisible
+                          ? 'visible'
+                          : 'hidden',
+                      zIndex: isActive ? 2 : 1,
+                      pointerEvents: isActive
+                        ? 'auto'
+                        : 'none',
                     }}
                     aria-hidden={!isActive}
                   >
-                    {/* MEDIA PANEL (Dominant 50% Stage Visual) */}
+                    {/* MEDIA */}
                     <div
                       className="chandra-about__media-panel"
-                      style={{ transform: `translate3d(0, ${mediaY}px, 0)` }}
+                      style={{
+                        opacity: reducedMotion
+                          ? isActive
+                            ? 1
+                            : 0
+                          : imageOpacity,
+                      }}
                     >
                       <figure className="chandra-about__media-frame">
                         <img
                           src={chapter.image}
                           alt={chapter.imageAlt}
-                          loading={idx === 0 ? 'eager' : 'lazy'}
+                          loading={
+                            idx === 0
+                              ? 'eager'
+                              : 'lazy'
+                          }
                           className="chandra-about__image"
-                          style={{ objectPosition: (chapter as any).objectPosition || 'center' }}
+                          style={{
+                            objectPosition:
+                              (chapter as any)
+                                .objectPosition ||
+                              'center',
+                            transform:
+                              reducedMotion
+                                ? 'none'
+                                : `scale(${imageScale.toFixed(
+                                    4
+                                  )})`,
+                          }}
                         />
-                        <div className="chandra-about__media-vignette" aria-hidden="true" />
+
+                        <div
+                          className="chandra-about__media-vignette"
+                          aria-hidden="true"
+                        />
                       </figure>
                     </div>
 
-                    {/* TEXT CONTENT PANEL (Co-equal Vertical Center) */}
-                    <div
-                      className="chandra-about__content-panel"
-                      style={{ transform: `translate3d(0, ${textY}px, 0)` }}
-                    >
-                      <div className="chandra-about__meta-row">
-                        <span className="chandra-about__meta-tag">{chapter.metadata}</span>
-                      </div>
-                      
-                      <h3 className="chandra-about__headline">
-                        <span className="chandra-about__headline-line">{chapter.headlineLine1}</span>
-                        <span className="chandra-about__headline-line">{chapter.headlineLine2}</span>
-                      </h3>
+                    {/* CONTENT */}
+                    <div className="chandra-about__content-panel">
+                      <div
+                        className="chandra-about__content-inner"
+                        style={{
+                          transform:
+                            reducedMotion
+                              ? 'none'
+                              : `translate3d(0, ${textY.toFixed(
+                                  1
+                                )}px, 0)`,
+                          opacity: reducedMotion
+                            ? isActive
+                              ? 1
+                              : 0
+                            : textOpacity,
+                          pointerEvents:
+                            textOpacity > 0.1
+                              ? 'auto'
+                              : 'none',
+                        }}
+                      >
+                        <div className="chandra-about__meta-row">
+                          <span className="chandra-about__meta-tag">
+                            {chapter.metadata}
+                          </span>
+                        </div>
 
-                      <p className="chandra-about__body">{chapter.body}</p>
+                        <h3 className="chandra-about__headline">
+                          <span className="chandra-about__headline-line">
+                            {chapter.headlineLine1}
+                          </span>
+
+                          <span className="chandra-about__headline-line">
+                            {chapter.headlineLine2}
+                          </span>
+                        </h3>
+
+                        <p className="chandra-about__body">
+                          {chapter.body}
+                        </p>
+                      </div>
                     </div>
                   </article>
                 );
@@ -216,40 +401,64 @@ export const About: React.FC = () => {
             </div>
           </div>
 
-          {/* Bottom Fixed Progress Ticks */}
-          <footer className="chandra-about__footer-nav" aria-hidden="true">
+          {/* Progress */}
+          <footer
+            className="chandra-about__footer-nav"
+            aria-hidden="true"
+          >
             <div className="chandra-about__progress-ticks">
               {chapters.map((_, i) => (
                 <span
                   key={i}
-                  className={`chandra-about__tick ${
-                    i === activeChapterIndex ? 'is-active' : i < activeChapterIndex ? 'is-passed' : ''
-                  }`}
+                  className={[
+                    'chandra-about__tick',
+                    i === activeChapterIndex
+                      ? 'is-active'
+                      : '',
+                    i < activeChapterIndex
+                      ? 'is-passed'
+                      : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
                 />
               ))}
             </div>
           </footer>
-
         </div>
       </div>
 
-      {/* MOBILE NATIVE STACKED VIEW (< 1024px) */}
-      <div className="chandra-about__mobile-view" aria-hidden={!isMobile}>
+      {/* ============================================================
+          MOBILE NATIVE STACKED VIEW
+          ============================================================ */}
+      <div
+        className="chandra-about__mobile-view"
+        aria-hidden={!isMobile}
+      >
         <div className="chandra-about__mobile-container">
           <header className="chandra-about__mobile-header">
             <div className="chandra-about__eyebrow-row">
               <span className="chandra-about__eyebrow">
                 02 / {siteContent.about.eyebrow}
               </span>
-              <div className="chandra-about__eyebrow-rule" aria-hidden="true" />
+
+              <div
+                className="chandra-about__eyebrow-rule"
+                aria-hidden="true"
+              />
             </div>
           </header>
 
           <ol className="chandra-about__mobile-list">
             {chapters.map((chapter) => (
-              <li key={chapter.id} className="chandra-about__mobile-card">
+              <li
+                key={chapter.id}
+                className="chandra-about__mobile-card"
+              >
                 <div className="chandra-about__mobile-meta">
-                  <span className="chandra-about__meta-tag">{chapter.metadata}</span>
+                  <span className="chandra-about__meta-tag">
+                    {chapter.metadata}
+                  </span>
                 </div>
 
                 <h3 className="chandra-about__mobile-headline">
@@ -266,9 +475,18 @@ export const About: React.FC = () => {
                     alt={chapter.imageAlt}
                     loading="lazy"
                     className="chandra-about__mobile-img"
-                    style={{ objectPosition: (chapter as any).objectPosition || 'center' }}
+                    style={{
+                      objectPosition:
+                        (chapter as any)
+                          .objectPosition ||
+                        'center',
+                    }}
                   />
-                  <div className="chandra-about__media-vignette" aria-hidden="true" />
+
+                  <div
+                    className="chandra-about__media-vignette"
+                    aria-hidden="true"
+                  />
                 </figure>
               </li>
             ))}
@@ -278,45 +496,51 @@ export const About: React.FC = () => {
 
       <style jsx>{`
         /* ============================================================
-           CHANDRA ABOUT — TRUE 50/50 SPLIT-SCREEN STORY STAGE
-           One Permanent Stage Geometry · Identical Center Y · Substantial Media
+           CHANDRA ABOUT — TWO STEP STORY
            ============================================================ */
 
         .chandra-about {
+          position: relative;
           background-color: var(--color-black);
           color: var(--color-white);
-          position: relative;
-          border-top: 1px solid rgba(248, 247, 243, 0.08);
+          border-top: 1px solid
+            rgba(248, 247, 243, 0.08);
         }
 
-        /* ------------------------------------------------------------
-           DESKTOP STICKY SCROLL TRACK (≥ 1024px)
-           ------------------------------------------------------------ */
+        /* ============================================================
+           DESKTOP TRACK
+           ============================================================ */
+
         .chandra-about__desktop-track {
           position: relative;
-          height: 420vh;
           width: 100%;
+          height: 500vh;
           display: block;
         }
 
         .chandra-about__sticky-viewport {
           position: sticky;
           top: 0;
-          height: 100vh;
-          height: 100svh;
           width: 100%;
+          height: 100svh;
+
           display: flex;
           align-items: center;
           justify-content: center;
+
           overflow: hidden;
           background-color: var(--color-black);
         }
 
-        /* Top Protected Header Bar */
+        /* ============================================================
+           SECTION HEADER
+           ============================================================ */
+
         .chandra-about__header {
           position: absolute;
           top: max(24px, 3.5vh);
           left: clamp(24px, 4.5vw, 64px);
+
           z-index: 10;
           pointer-events: none;
         }
@@ -339,125 +563,188 @@ export const About: React.FC = () => {
         .chandra-about__eyebrow-rule {
           width: 28px;
           height: 1px;
-          background-color: rgba(198, 161, 91, 0.4);
+          background-color: rgba(
+            198,
+            161,
+            91,
+            0.4
+          );
         }
 
-        /* Stage Container: Full-Height Usable Band */
+        /* ============================================================
+           STORY STAGE
+           ============================================================ */
+
         .chandra-about__stage-container {
-          max-width: var(--container-max);
+          position: relative;
           width: 100%;
           height: 100%;
-          margin: 0 auto;
-          padding: 0 var(--page-pad-x);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          position: relative;
-          box-sizing: border-box;
         }
 
-        /* Single Stage Geometry */
         .chandra-about__stage {
           position: relative;
           width: 100%;
           height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
         }
 
-        /* Chapter Overlay: Exact Same 1fr 1fr Grid, Center Aligned */
+        /*
+         * IMPORTANT:
+         *
+         * ONE ROW ONLY.
+         *
+         * grid-template-areas ensures the DOM order does
+         * not push even chapters into a second grid row.
+         */
+
         .chandra-about__chapter {
           position: absolute;
           inset: 0;
+
           width: 100%;
           height: 100%;
+
           display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-          gap: clamp(40px, 5vw, 80px);
-          align-items: center;
+
+          grid-template-columns:
+            minmax(0, 1fr)
+            minmax(0, 1fr);
+
+          grid-template-rows:
+            minmax(0, 1fr);
+
+          align-items: stretch;
           box-sizing: border-box;
         }
 
-        /* Horizontal Mirroring Only (Y NEVER Changes) */
-        /* Chapter 01, 03, 05: Media Left (Col 1), Text Right (Col 2) */
-        .chandra-about__chapter--media-left .chandra-about__media-panel {
-          grid-column: 1;
-        }
-        .chandra-about__chapter--media-left .chandra-about__content-panel {
-          grid-column: 2;
+        /* 01 / 03 / 05 */
+        .chandra-about__chapter--media-left {
+          grid-template-areas:
+            'media content';
         }
 
-        /* Chapter 02, 04: Text Left (Col 1), Media Right (Col 2) */
-        .chandra-about__chapter--text-left .chandra-about__content-panel {
-          grid-column: 1;
-        }
-        .chandra-about__chapter--text-left .chandra-about__media-panel {
-          grid-column: 2;
+        /* 02 / 04 */
+        .chandra-about__chapter--text-left {
+          grid-template-areas:
+            'content media';
         }
 
-        /* ------------------------------------------------------------
-           DOMINANT MEDIA PANEL (~50% STAGE WIDTH, 74–78% VIEWPORT HEIGHT)
-           ------------------------------------------------------------ */
+        /* ============================================================
+           MEDIA
+           ============================================================ */
+
         .chandra-about__media-panel {
+          grid-area: media;
+
+          min-width: 0;
+          min-height: 0;
+
           width: 100%;
           height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1;
-          will-change: transform;
+
+          position: relative;
+          overflow: hidden;
+
+          background-color:
+            var(--color-charcoal);
+
+          will-change: opacity;
+
+          transition:
+            opacity 0.3s ease-out;
         }
 
         .chandra-about__media-frame {
           position: relative;
+
           width: 100%;
-          height: clamp(360px, 74vh, 78vh);
-          max-height: calc(100vh - 160px); /* Strictly safe-stage driven */
+          height: 100%;
+
           margin: 0;
-          border-radius: 4px;
           overflow: hidden;
-          background-color: var(--color-charcoal);
-          border: 1px solid rgba(248, 247, 243, 0.1);
-          box-shadow: 0 24px 60px -15px rgba(0, 0, 0, 0.9);
         }
 
         .chandra-about__image {
           width: 100%;
           height: 100%;
-          object-fit: cover;
+
           display: block;
-          filter: brightness(0.92) contrast(1.05);
-          transition: filter 0.4s ease;
+          object-fit: cover;
+
+          filter:
+            brightness(0.92)
+            contrast(1.05);
+
+          will-change: transform;
+
+          transition:
+            filter 0.4s ease;
         }
 
-        .chandra-about__chapter.is-active .chandra-about__image {
-          filter: brightness(1) contrast(1.06);
+        .chandra-about__chapter.is-active
+          .chandra-about__image {
+          filter:
+            brightness(1)
+            contrast(1.06);
         }
 
         .chandra-about__media-vignette {
           position: absolute;
           inset: 0;
+
+          pointer-events: none;
+
           background: linear-gradient(
             180deg,
-            rgba(7, 8, 7, 0.15) 0%,
-            transparent 40%,
-            rgba(7, 8, 7, 0.5) 100%
+            rgba(7, 8, 7, 0.25) 0%,
+            transparent 35%,
+            rgba(7, 8, 7, 0.4) 100%
           );
-          pointer-events: none;
         }
 
-        /* ------------------------------------------------------------
-           CO-EQUAL TEXT CONTENT PANEL (CENTER ALIGNED)
-           ------------------------------------------------------------ */
+        /* ============================================================
+           CONTENT
+           ============================================================ */
+
         .chandra-about__content-panel {
+          grid-area: content;
+
+          min-width: 0;
+          min-height: 0;
+
+          width: 100%;
+          height: 100%;
+
           display: flex;
           flex-direction: column;
           justify-content: center;
-          gap: clamp(14px, 2vh, 20px);
+
+          padding-inline:
+            clamp(56px, 6vw, 110px);
+
+          padding-block:
+            max(80px, 10vh);
+
+          box-sizing: border-box;
+        }
+
+        .chandra-about__content-inner {
+          width: 100%;
           max-width: 520px;
-          z-index: 2;
-          will-change: transform;
+
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+
+          gap:
+            clamp(14px, 2.2vh, 22px);
+
+          will-change:
+            transform,
+            opacity;
+
+          transition:
+            transform 0.3s ease-out,
+            opacity 0.3s ease-out;
         }
 
         .chandra-about__meta-row {
@@ -470,22 +757,34 @@ export const About: React.FC = () => {
           font-family: var(--font-mono);
           font-size: 11px;
           font-weight: 500;
+
           letter-spacing: 0.22em;
+
           color: var(--color-gold);
+
           text-transform: uppercase;
         }
 
         .chandra-about__headline {
-          font-family: var(--font-display-condensed);
-          font-size: clamp(38px, 4.2vw, 62px);
-          font-weight: 800;
-          line-height: 1.04;
-          letter-spacing: -0.015em;
-          color: var(--color-white);
           margin: 0;
-          text-transform: uppercase;
+
           display: flex;
           flex-direction: column;
+
+          font-family:
+            var(--font-display-condensed);
+
+          font-size:
+            clamp(38px, 4.2vw, 62px);
+
+          font-weight: 800;
+          line-height: 1.04;
+
+          letter-spacing: -0.015em;
+
+          color: var(--color-white);
+
+          text-transform: uppercase;
         }
 
         .chandra-about__headline-line {
@@ -493,19 +792,34 @@ export const About: React.FC = () => {
         }
 
         .chandra-about__body {
-          font-family: var(--font-body);
-          font-size: clamp(15px, 1.15vw, 17px);
-          line-height: 1.6;
-          color: rgba(248, 247, 243, 0.82);
-          margin: 0;
           max-width: 480px;
+
+          margin: 0;
+
+          font-family: var(--font-body);
+
+          font-size:
+            clamp(15px, 1.15vw, 17px);
+
+          line-height: 1.6;
+
+          color:
+            rgba(248, 247, 243, 0.82);
         }
 
-        /* Bottom Fixed Progress Ticks */
+        /* ============================================================
+           PROGRESS
+           ============================================================ */
+
         .chandra-about__footer-nav {
           position: absolute;
-          bottom: max(24px, 3.5vh);
-          right: clamp(24px, 4.5vw, 64px);
+
+          right:
+            clamp(24px, 4.5vw, 64px);
+
+          bottom:
+            max(24px, 3.5vh);
+
           z-index: 10;
           pointer-events: none;
         }
@@ -519,23 +833,33 @@ export const About: React.FC = () => {
         .chandra-about__tick {
           width: 24px;
           height: 2px;
-          background-color: rgba(248, 247, 243, 0.15);
+
           border-radius: 1px;
-          transition: background-color 0.3s ease, width 0.3s ease;
+
+          background-color:
+            rgba(248, 247, 243, 0.15);
+
+          transition:
+            background-color 0.3s ease,
+            width 0.3s ease;
         }
 
         .chandra-about__tick.is-active {
-          background-color: rgba(198, 161, 91, 0.85);
           width: 36px;
+
+          background-color:
+            rgba(198, 161, 91, 0.85);
         }
 
         .chandra-about__tick.is-passed {
-          background-color: rgba(198, 161, 91, 0.4);
+          background-color:
+            rgba(198, 161, 91, 0.4);
         }
 
-        /* ------------------------------------------------------------
-           MOBILE NATIVE STACKED VIEW (< 1024px)
-           ------------------------------------------------------------ */
+        /* ============================================================
+           MOBILE
+           ============================================================ */
+
         .chandra-about__mobile-view {
           display: none;
         }
@@ -547,13 +871,17 @@ export const About: React.FC = () => {
 
           .chandra-about__mobile-view {
             display: block;
-            padding: clamp(64px, 8vw, 100px) var(--page-pad-x);
+
+            padding:
+              clamp(64px, 8vw, 100px)
+              var(--page-pad-x);
           }
 
           .chandra-about__mobile-container {
-            max-width: var(--container-max);
-            margin: 0 auto;
             width: 100%;
+            max-width: var(--container-max);
+
+            margin: 0 auto;
           }
 
           .chandra-about__mobile-header {
@@ -562,24 +890,32 @@ export const About: React.FC = () => {
 
           .chandra-about__mobile-list {
             list-style: none;
+
             margin: 0;
             padding: 0;
+
             display: flex;
             flex-direction: column;
+
             gap: 56px;
           }
 
           .chandra-about__mobile-card {
             display: flex;
             flex-direction: column;
+
             gap: 16px;
-            border-bottom: 1px solid rgba(248, 247, 243, 0.08);
+
             padding-bottom: 48px;
+
+            border-bottom:
+              1px solid
+              rgba(248, 247, 243, 0.08);
           }
 
           .chandra-about__mobile-card:last-child {
-            border-bottom: none;
             padding-bottom: 0;
+            border-bottom: none;
           }
 
           .chandra-about__mobile-meta {
@@ -588,54 +924,80 @@ export const About: React.FC = () => {
           }
 
           .chandra-about__mobile-headline {
-            font-family: var(--font-display-condensed);
-            font-size: clamp(26px, 6vw, 36px);
+            margin: 0;
+
+            font-family:
+              var(--font-display-condensed);
+
+            font-size:
+              clamp(26px, 6vw, 36px);
+
             font-weight: 800;
             line-height: 1.1;
+
             letter-spacing: -0.015em;
+
             color: var(--color-white);
-            margin: 0;
+
             text-transform: uppercase;
           }
 
           .chandra-about__mobile-body {
+            margin: 0;
+
             font-family: var(--font-body);
             font-size: 14.5px;
+
             line-height: 1.6;
-            color: rgba(248, 247, 243, 0.82);
-            margin: 0;
+
+            color:
+              rgba(248, 247, 243, 0.82);
           }
 
           .chandra-about__mobile-frame {
             position: relative;
+
             width: 100%;
             aspect-ratio: 4 / 3;
-            margin: 8px 0 0 0;
-            border-radius: 4px;
+
+            margin: 8px 0 0;
+
             overflow: hidden;
-            border: 1px solid rgba(248, 247, 243, 0.1);
-            background-color: var(--color-charcoal);
+
+            border-radius: 4px;
+
+            border:
+              1px solid
+              rgba(248, 247, 243, 0.1);
+
+            background-color:
+              var(--color-charcoal);
           }
 
           .chandra-about__mobile-img {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+
             display: block;
+            object-fit: cover;
           }
         }
 
-        /* ------------------------------------------------------------
-           Reduced Motion Compliance
-           ------------------------------------------------------------ */
+        /* ============================================================
+           REDUCED MOTION
+           ============================================================ */
+
         @media (prefers-reduced-motion: reduce) {
-          .chandra-about__content-panel,
+          .chandra-about__content-inner,
+          .chandra-about__image,
           .chandra-about__media-panel {
             transform: none !important;
             transition: none !important;
           }
+
           .chandra-about__chapter {
-            transition: opacity 0.01ms !important;
+            transition:
+              opacity 0.01ms !important;
           }
         }
       `}</style>
