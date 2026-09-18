@@ -191,7 +191,7 @@ Include only:
 - No oversized pill buttons
 - No generic agency blobs/shapes
 
-## 8. Figma AI Instruction
+## 8. Figma Design Instructions
 When generating frames from this document:
 1. Use **Approved Design Reference.png** as the visual source of truth.
 2. Keep the website a **single continuous scroll**.
