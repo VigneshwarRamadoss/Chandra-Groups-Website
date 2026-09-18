@@ -39,6 +39,14 @@ export const metadata: Metadata = {
     description: 'High-production event management and cinematic live experiences at scale.',
     images: ['/media/hero-poster.webp'],
   },
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/favicon.svg',
+  },
 };
 
 export const viewport: Viewport = {
