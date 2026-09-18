@@ -9,10 +9,6 @@ import { siteContent } from '@/content/siteContent';
 
 interface NavigationProps {
   onOpenEnquiry: () => void;
-
-  // Keep compatibility if page.tsx
-  // still passes the old property.
-  isPreloaderComplete?: boolean;
 }
 
 export const Navigation:

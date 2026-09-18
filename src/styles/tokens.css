@@ -89,11 +89,11 @@
   --color-line-gold: rgba(198, 161, 91, 0.35);
 
   /* Typography Stacks */
-  --font-display-condensed: 'Monument Grotesk Condensed', 'Syne', Impact, 'Arial Narrow', sans-serif;
-  --font-display: 'Monument Grotesk', 'Space Grotesk', 'Helvetica Neue', Arial, sans-serif;
-  --font-body: 'Söhne', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'Monument Grotesk Semi-Mono', 'Space Mono', 'SF Mono', Consolas, monospace;
-  --font-serif: 'Canela', 'Cormorant Garamond', 'Tiempos Headline', Didot, 'Bodoni MT', Georgia, serif;
+  --font-display-condensed: 'Monument Grotesk Condensed', 'Arial Narrow', 'Helvetica Neue', sans-serif;
+  --font-display: 'Monument Grotesk', 'Helvetica Neue', Arial, sans-serif;
+  --font-body: 'Söhne', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Monument Grotesk Semi-Mono', ui-monospace, SFMono-Regular, Consolas, monospace;
+  --font-serif: 'Canela', Georgia, serif;
 
   /* Layout & Spacing */
   --container-max: 1380px;

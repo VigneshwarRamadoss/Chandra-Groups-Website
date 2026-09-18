@@ -7,9 +7,6 @@ import { Preloader } from './Preloader';
 interface HeroProps {
   onOpenEnquiry: () => void;
   onMediaReady?: () => void;
-
-  // Kept only so existing page.tsx does not break if it still passes this.
-  isPreloaderComplete?: boolean;
 }
 
 export const Hero: React.FC<HeroProps> = ({
