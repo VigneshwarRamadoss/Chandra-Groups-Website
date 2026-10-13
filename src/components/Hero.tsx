@@ -15,7 +15,7 @@ export const Hero: React.FC<HeroProps> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // THIS is now the scroll track.
+  // Hero remains the visual host for the one-time splash overlay.
   const heroTrackRef = useRef<HTMLElement>(null);
 
   // Preloader/GSAP directly controls this.
@@ -127,7 +127,7 @@ export const Hero: React.FC<HeroProps> = ({
       className="hero-scroll-track"
     >
       {/* =====================================================
-          ONE STICKY HERO STAGE
+          HERO STAGE
           ===================================================== */}
       <div className="hero-sticky-stage">
 
@@ -298,8 +298,8 @@ export const Hero: React.FC<HeroProps> = ({
         </div>
 
         {/* =====================================================
-            PRELOADER IS NOT A SECTION ANYMORE.
-            IT IS ONLY AN OVERLAY INSIDE HERO.
+            PRELOADER
+            ONE-TIME SPLASH OVERLAY INSIDE HERO
             ===================================================== */}
         <Preloader
           introTrackRef={heroTrackRef}
@@ -309,21 +309,21 @@ export const Hero: React.FC<HeroProps> = ({
 
       <style jsx>{`
         /*
-         * This is the ONLY scroll distance for the entrance.
+         * Hero is now a normal single-viewport section.
          *
-         * Hero itself is the track.
-         * No extra intro section exists.
+         * The preloader is time-driven rather than
+         * scroll-driven, so no extended scroll track
+         * is required anymore.
          */
         .hero-scroll-track {
           position: relative;
           width: 100%;
-          height: 300svh;
+          height: 100svh;
           background: #070807;
         }
 
         /*
-         * The visible Hero stays on screen while the
-         * user scrolls through the reveal.
+         * Preserve the existing Hero stage architecture.
          */
         .hero-sticky-stage {
           position: sticky;
@@ -405,7 +405,6 @@ export const Hero: React.FC<HeroProps> = ({
           align-items: center;
 
           /*
-           * Critical:
            * GSAP owns these properties.
            */
           opacity: 0;
@@ -478,19 +477,18 @@ export const Hero: React.FC<HeroProps> = ({
         }
 
         /*
-         * Touch needs less distance,
-         * but still enough to feel like an experience.
+         * Splash is time-driven on mobile too,
+         * so no extended scroll distance is needed.
          */
         @media (max-width: 767px) {
           .hero-scroll-track {
-            height: 220svh;
+            height: 100svh;
           }
         }
 
         /*
-         * Accessibility:
-         * no giant scroll track when reduced motion
-         * is requested.
+         * Reduced motion keeps the same single
+         * viewport Hero.
          */
         @media (
           prefers-reduced-motion: reduce
