@@ -1,15 +1,13 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useLayoutEffect, useRef } from 'react';
 import gsap from 'gsap';
 
 interface PreloaderProps {
-  introTrackRef: React.RefObject<HTMLElement | null>;
   heroForegroundRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export const Preloader: React.FC<PreloaderProps> = ({
-  introTrackRef,
   heroForegroundRef,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -20,9 +18,8 @@ export const Preloader: React.FC<PreloaderProps> = ({
   const anniversaryRef = useRef<HTMLDivElement>(null);
   const particleLayerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const container = containerRef.current;
-    const track = introTrackRef.current;
     const foreground = heroForegroundRef.current;
     const maskPositionGroup = maskPositionGroupRef.current;
     const maskScaleGroup = maskScaleGroupRef.current;
@@ -32,9 +29,12 @@ export const Preloader: React.FC<PreloaderProps> = ({
     const particleLayer = particleLayerRef.current;
     const navigation = document.getElementById('chandra-navigation');
 
-    if (!container || !track || !foreground || !maskPositionGroup || !maskScaleGroup || !blackOverlay || !brand || !anniversary || !particleLayer) {
+    if (!container || !foreground || !maskPositionGroup || !maskScaleGroup || !blackOverlay || !brand || !anniversary || !particleLayer) {
       return;
     }
+
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (mediaQuery.matches || window.location.hash || window.scrollY > 0) return;
 
     const SYMBOL_CENTER_SHIFT = 367;
     const MASK_BASE_SIZE = 120;
@@ -42,7 +42,6 @@ export const Preloader: React.FC<PreloaderProps> = ({
 
     let finalScale = 1;
     let resizeFrame = 0;
-    let introCompleted = false;
 
     const calculateMaskGeometry = () => {
       const width = container.clientWidth || window.innerWidth;
@@ -60,11 +59,10 @@ export const Preloader: React.FC<PreloaderProps> = ({
       finalScale = Math.max(sTL, sTR, sBL, sBR) * 1.15;
     };
 
-    calculateMaskGeometry();
-
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     const symbolShift = brand.querySelector('#logo-symbol-shift') as SVGGElement | null;
     const symbol = brand.querySelector('#logo-symbol') as SVGGElement | null;
+
+    if (!symbolShift || !symbol) return;
 
     const letters = [
       '#letter-c',
@@ -77,36 +75,6 @@ export const Preloader: React.FC<PreloaderProps> = ({
     ]
       .map((selector) => brand.querySelector(selector))
       .filter(Boolean) as SVGGElement[];
-
-    if (mediaQuery.matches) {
-      maskScaleGroup.setAttribute('transform', `scale(${finalScale})`);
-      gsap.set(blackOverlay, { opacity: 0 });
-      gsap.set(brand, { opacity: 0 });
-      gsap.set(anniversary, { opacity: 0, visibility: 'hidden' });
-      gsap.set(foreground, { opacity: 1, y: 0, pointerEvents: 'auto' });
-
-      if (navigation) {
-        gsap.set(navigation, { opacity: 1, y: 0, pointerEvents: 'auto' });
-      }
-
-      container.style.display = 'none';
-      return;
-    }
-
-    const previousBodyOverflow = document.body.style.overflow;
-    const previousHtmlOverflow = document.documentElement.style.overflow;
-    const previousScrollBehavior = document.documentElement.style.scrollBehavior;
-
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overflow = 'hidden';
-    document.documentElement.style.scrollBehavior = 'auto';
-    window.scrollTo(0, 0);
-
-    const restoreDocumentScroll = () => {
-      document.body.style.overflow = previousBodyOverflow;
-      document.documentElement.style.overflow = previousHtmlOverflow;
-      document.documentElement.style.scrollBehavior = previousScrollBehavior;
-    };
 
     const particleAnimations: gsap.core.Animation[] = [];
 
@@ -144,7 +112,7 @@ export const Preloader: React.FC<PreloaderProps> = ({
       });
 
       const totalWeight = pathWeights.reduce((sum, weight) => sum + weight, 0);
-      const totalParticles = window.innerWidth < 768 ? 300 : 480;
+      const totalParticles = window.innerWidth < 768 ? 72 : 120;
 
       geometryPaths.forEach((path, pathIndex) => {
         const bbox = path.getBBox();
@@ -159,7 +127,7 @@ export const Preloader: React.FC<PreloaderProps> = ({
         const hasStroke = strokeColor !== 'none' && strokeColor !== 'rgba(0, 0, 0, 0)';
 
         const targetCount = Math.max(
-          hasStroke && !hasFill ? 18 : 14,
+          hasStroke && !hasFill ? 5 : 3,
           Math.round((pathWeights[pathIndex] / totalWeight) * totalParticles)
         );
 
@@ -214,7 +182,7 @@ export const Preloader: React.FC<PreloaderProps> = ({
           const travel = gsap.utils.random(10, 34);
           const driftX = directionX * travel + gsap.utils.random(-7, 7);
           const driftY = directionY * travel + gsap.utils.random(-7, 7);
-          const delay = gsap.utils.random(0, 0.18);
+          const delay = gsap.utils.random(0, 0.07);
 
           const particleTimeline = gsap.timeline({ delay });
 
@@ -230,7 +198,7 @@ export const Preloader: React.FC<PreloaderProps> = ({
               {
                 opacity: gsap.utils.random(0.72, 1),
                 scale: 1,
-                duration: 0.14,
+                duration: 0.10,
                 ease: 'power1.out',
               }
             )
@@ -241,8 +209,7 @@ export const Preloader: React.FC<PreloaderProps> = ({
                 y: driftY,
                 opacity: 0,
                 scale: gsap.utils.random(0.25, 0.55),
-                filter: 'blur(1.2px)',
-                duration: gsap.utils.random(1.0, 1.35),
+                duration: gsap.utils.random(0.34, 0.52),
                 ease: 'power1.out',
               },
               0.08
@@ -254,250 +221,88 @@ export const Preloader: React.FC<PreloaderProps> = ({
       });
     };
 
-    const ctx = gsap.context(() => {
-      gsap.set(blackOverlay, { opacity: 1 });
-      gsap.set(brand, { opacity: 1, scale: 1 });
-      gsap.set(anniversary, { opacity: 0, y: 6, scale: 0.985, visibility: 'hidden' });
-      gsap.set(maskScaleGroup, { attr: { transform: 'scale(1)' } });
-      gsap.set(foreground, { opacity: 0, y: 12, pointerEvents: 'none' });
+    const root = document.documentElement;
+    const content = navigation ? [foreground, navigation] : [foreground];
+    let finished = false;
 
-      if (navigation) {
-        gsap.set(navigation, { opacity: 0, y: -6, pointerEvents: 'none' });
-      }
+    const handleResize = () => {
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(calculateMaskGeometry);
+    };
 
-      if (symbolShift) {
-        gsap.set(symbolShift, { attr: { transform: `translate(${SYMBOL_CENTER_SHIFT} 0)` } });
-      }
+    const handleMotionChange = (event: MediaQueryListEvent) => {
+      if (event.matches) finishIntro();
+    };
 
-      if (symbol) {
-        gsap.set(symbol, { opacity: 0, scale: 0.92, transformOrigin: '50% 50%' });
-      }
+    const finishIntro = () => {
+      if (finished) return;
+      finished = true;
 
-      if (letters.length) {
-        gsap.set(letters, { opacity: 0, y: 8 });
-      }
-
-      const splashTimeline = gsap.timeline({
-        defaults: { ease: 'power2.out' },
-        onComplete: () => {
-          introCompleted = true;
-          clearParticles();
-          gsap.set(foreground, { pointerEvents: 'auto' });
-
-          if (navigation) {
-            gsap.set(navigation, { pointerEvents: 'auto' });
-          }
-
-          gsap.set(container, { autoAlpha: 0 });
-          container.style.display = 'none';
-          restoreDocumentScroll();
-        },
-      });
-
-      // Calm opening: diamond appears first.
-      if (symbol) {
-        splashTimeline.to(
-          symbol,
-          { opacity: 1, scale: 1, duration: 0.70, ease: 'power2.out' },
-          0.15
-        );
-      }
-
-      splashTimeline.to({}, { duration: 0.28 });
-      splashTimeline.addLabel('symbolMove');
-
-      // Move the diamond completely into its original left position BEFORE
-      // any letters begin. This prevents the temporary symbol/wordmark overlap.
-      if (symbolShift) {
-        splashTimeline.to(
-          symbolShift,
-          {
-            attr: { transform: 'translate(0 0)' },
-            duration: 0.88,
-            ease: 'power2.inOut',
-          },
-          'symbolMove'
-        );
-      }
-
-      // Small breathing space after the diamond has fully settled.
-      splashTimeline.to({}, { duration: 0.18 });
-      splashTimeline.addLabel('lettersReveal');
-
-      if (letters.length) {
-        splashTimeline.to(
-          letters,
-          {
-            opacity: 1,
-            y: 0,
-            duration: 0.40,
-            stagger: 0.10,
-            ease: 'power2.out',
-          },
-          'lettersReveal'
-        );
-      }
-
-      // Let the completed CHANDRA signature sit calmly before dissolving.
-      splashTimeline.to({}, { duration: 0.62 });
-      splashTimeline.addLabel('particleDissolve');
-
-      // The particles are sampled from the real SVG paths, so the logo appears
-      // to physically break into its own tiny maroon/gold fragments.
-      splashTimeline.call(spawnLogoParticles, [], 'particleDissolve');
-
-      splashTimeline.to(
-        brand,
-        {
-          opacity: 0,
-          scale: 0.995,
-          duration: 0.28,
-          ease: 'power1.inOut',
-        },
-        'particleDissolve+=0.08'
-      );
-
-      // Give the real SVG fragments time to drift and fade completely.
-      splashTimeline.to({}, { duration: 1.34 });
-      splashTimeline.call(clearParticles);
-
-      // Legacy splash — slower, quieter entrance and exit.
-      splashTimeline.set(anniversary, { visibility: 'visible' });
-      splashTimeline.to(
-        anniversary,
-        {
-          opacity: 1,
-          y: 0,
-          scale: 1,
-          duration: 0.72,
-          ease: 'power2.out',
-        }
-      );
-      splashTimeline.to({}, { duration: 1.15 });
-      splashTimeline.to(
-        anniversary,
-        {
-          opacity: 0,
-          y: -4,
-          duration: 0.62,
-          ease: 'power1.inOut',
-        }
-      );
-      splashTimeline.set(anniversary, { visibility: 'hidden' });
-
-      // Bring the approved diamond back to the exact centre.
-      splashTimeline.set(brand, { opacity: 1, scale: 1 });
-
-      if (letters.length) {
-        splashTimeline.set(letters, { opacity: 0, y: 0 });
-      }
-
-      if (symbolShift) {
-        splashTimeline.set(symbolShift, {
-          attr: { transform: `translate(${SYMBOL_CENTER_SHIFT} 0)` },
-        });
-      }
-
-      if (symbol) {
-        splashTimeline.set(symbol, { opacity: 0, scale: 0.96 });
-        splashTimeline.to(
-          symbol,
-          {
-            opacity: 1,
-            scale: 1,
-            duration: 0.68,
-            ease: 'power2.out',
-          }
-        );
-      }
-
-      splashTimeline.to({}, { duration: 0.34 });
-      splashTimeline.addLabel('heroReveal');
-
-      // Existing diamond-to-Hero mask reveal, kept intact but slowed down.
-      splashTimeline.to(
-        blackOverlay,
-        { opacity: 0, duration: 0.20, ease: 'power1.inOut' },
-        'heroReveal'
-      );
-
-      if (symbol) {
-        splashTimeline.to(
-          symbol,
-          { opacity: 0, duration: 0.20, ease: 'power1.inOut' },
-          'heroReveal'
-        );
-      }
-
-      splashTimeline.to(
-        brand,
-        { opacity: 0, duration: 0.16, ease: 'power1.inOut' },
-        'heroReveal+=0.12'
-      );
-
-      splashTimeline.to(
-        maskScaleGroup,
-        {
-          attr: { transform: () => `scale(${finalScale})` },
-          duration: 1.32,
-          ease: 'power2.inOut',
-        },
-        'heroReveal+=0.08'
-      );
-
-      splashTimeline.to(
-        foreground,
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.62,
-          ease: 'power2.out',
-        },
-        'heroReveal+=0.86'
-      );
-
-      if (navigation) {
-        splashTimeline.to(
-          navigation,
-          {
-            opacity: 1,
-            y: 0,
-            duration: 0.62,
-            ease: 'power2.out',
-          },
-          'heroReveal+=0.86'
-        );
-      }
-
-      splashTimeline.to({}, { duration: 0.18 });
-
-      const handleResize = () => {
-        cancelAnimationFrame(resizeFrame);
-        resizeFrame = requestAnimationFrame(calculateMaskGeometry);
-      };
-
-      window.addEventListener('resize', handleResize, { passive: true });
-
-      (container as HTMLDivElement & { __chandraResizeCleanup?: () => void }).__chandraResizeCleanup = () => {
-        cancelAnimationFrame(resizeFrame);
-        window.removeEventListener('resize', handleResize);
-      };
-    }, container);
-
-    return () => {
-      const extendedContainer = container as HTMLDivElement & {
-        __chandraResizeCleanup?: () => void;
-      };
-
-      extendedContainer.__chandraResizeCleanup?.();
+      mediaQuery.removeEventListener('change', handleMotionChange);
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(resizeFrame);
       clearParticles();
       ctx.revert();
-
-      if (!introCompleted) {
-        restoreDocumentScroll();
-      }
+      root.classList.remove('chandra-intro-active');
     };
-  }, [introTrackRef, heroForegroundRef]);
+
+    const ctx = gsap.context(() => {
+      gsap.set(container, { display: 'block' });
+      calculateMaskGeometry();
+      gsap.set(content, { autoAlpha: 0, pointerEvents: 'none' });
+      gsap.set(foreground, { y: 10 });
+      if (navigation) gsap.set(navigation, { y: -6 });
+
+      gsap.set(symbol, { opacity: 0, scale: 0.94, transformOrigin: '50% 50%' });
+      gsap.set(letters, { opacity: 0, y: 5 });
+
+      const splash = gsap.timeline({
+        defaults: { ease: 'power2.out' },
+        onComplete: finishIntro,
+      });
+
+      splash
+        .to(symbol, { opacity: 1, scale: 1, duration: 0.26 }, 0)
+        .to(symbolShift, {
+          attr: { transform: 'translate(0 0)' },
+          duration: 0.34,
+          ease: 'power2.inOut',
+        }, 0.22)
+        .to(letters, { opacity: 1, y: 0, duration: 0.18, stagger: 0.025 }, 0.56)
+        .addLabel('logoDissolve', '+=0.14')
+        .call(spawnLogoParticles, [], 'logoDissolve')
+        .to(brand, { opacity: 0, duration: 0.22 }, 'logoDissolve')
+        .addLabel('anniversary', 'logoDissolve+=0.14')
+        .fromTo(anniversary, { y: 5 }, {
+          autoAlpha: 1,
+          y: 0,
+          duration: 0.22,
+        }, 'anniversary')
+        .to(anniversary, { autoAlpha: 0, y: -4, duration: 0.23 }, 'anniversary+=0.66')
+        .addLabel('diamondReturn', 'anniversary+=0.76')
+        .set(letters, { opacity: 0 }, 'diamondReturn')
+        .set(symbolShift, {
+          attr: { transform: `translate(${SYMBOL_CENTER_SHIFT} 0)` },
+        }, 'diamondReturn')
+        .set(brand, { opacity: 1 }, 'diamondReturn')
+        .fromTo(symbol, { opacity: 0 }, { opacity: 1, duration: 0.17, immediateRender: false }, 'diamondReturn')
+        .addLabel('heroReveal')
+        .to(blackOverlay, { opacity: 0, duration: 0.16 }, 'heroReveal')
+        .to(brand, { opacity: 0, duration: 0.20 }, 'heroReveal')
+        .to(maskScaleGroup, {
+          attr: { transform: () => `scale(${finalScale})` },
+          duration: 0.55,
+          ease: 'power2.inOut',
+        }, 'heroReveal')
+        .to(content, { autoAlpha: 1, y: 0, duration: 0.36 }, 'heroReveal+=0.22');
+    }, container);
+
+    root.classList.add('chandra-intro-active');
+    window.addEventListener('resize', handleResize, { passive: true });
+    mediaQuery.addEventListener('change', handleMotionChange);
+
+    return finishIntro;
+  }, [heroForegroundRef]);
 
   return (
 
@@ -506,6 +311,7 @@ export const Preloader: React.FC<PreloaderProps> = ({
       ref={containerRef}
 
       aria-hidden="true"
+      hidden
 
       className="chandra-preloader"
 
@@ -685,7 +491,7 @@ export const Preloader: React.FC<PreloaderProps> = ({
 
       />
 
-      {/* One-time legacy splash shown after the CHANDRA particle dissolve. */}
+      {/* Anniversary message crossfades with the CHANDRA particle dissolve. */}
       <div
         ref={anniversaryRef}
         className="preloader-anniversary"
@@ -1018,6 +824,15 @@ export const Preloader: React.FC<PreloaderProps> = ({
 
       <style jsx>{`
 
+        :global(html) {
+          scrollbar-gutter: stable;
+        }
+
+        :global(html.chandra-intro-active),
+        :global(html.chandra-intro-active body) {
+          overflow-y: hidden;
+        }
+
         .chandra-preloader {
 
           position: absolute;
@@ -1238,7 +1053,7 @@ export const Preloader: React.FC<PreloaderProps> = ({
           opacity: 0;
           transform: translate(-50%, -50%);
           pointer-events: none;
-          will-change: transform, opacity, filter;
+          will-change: transform, opacity;
         }
 
         @media (max-width: 767px) {

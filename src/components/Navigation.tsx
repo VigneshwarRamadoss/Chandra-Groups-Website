@@ -385,22 +385,6 @@ export const Navigation:
         )}
 
         <style jsx>{`
-          /*
-           * GSAP owns opacity / transform.
-           * React never overwrites them.
-           */
-          .chandra-navigation {
-            opacity: 0;
-            transform:
-              translateY(-6px);
-
-            pointer-events: none;
-
-            will-change:
-              opacity,
-              transform;
-          }
-
           @media (min-width: 900px) {
             .desktop-nav {
               display: flex !important;
