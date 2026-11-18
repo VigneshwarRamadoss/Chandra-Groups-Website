@@ -1,0 +1,59 @@
+.section {
+  color: var(--color-white, #faf9f5);
+  background: var(--color-charcoal, #151514);
+  padding: clamp(4rem, 8vw, 8rem) clamp(1.5rem, 6vw, 7rem);
+  scroll-margin-top: 5rem;
+}
+.layout {
+  max-width: 80rem;
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: clamp(3rem, 8vw, 9rem);
+  align-items: start;
+}
+.intro { position: sticky; top: 8rem; }
+.intro h2, .entry h3 {
+  margin: 0;
+  font-family: var(--font-display, Georgia), serif;
+  font-weight: 400;
+}
+.intro h2 { font-size: clamp(3rem, 5.6vw, 6rem); line-height: 1.04; }
+.section p {
+  margin: .7rem 0 0;
+  color: #d3cfc6;
+  font: 400 1rem/1.6 var(--font-body, Arial), sans-serif;
+  max-width: 52ch;
+}
+.intro p { max-width: 30ch; }
+.list { list-style: none; margin: 0; padding: 0; }
+.entry { position: relative; padding: 0 0 clamp(2.5rem, 5vw, 4.5rem) 2rem; }
+.entry:last-child { padding-bottom: 0; }
+.entry:not(:last-child)::before {
+  content: ''; position: absolute; top: .65rem; bottom: -.65rem; left: 4px;
+  width: 1px; background: #68604e;
+}
+.entry::after {
+  content: ''; position: absolute; top: .4rem; left: 0;
+  width: 9px; height: 9px; border-radius: 50%; background: var(--color-gold, #c6a15b);
+}
+.year { display: block; color: #d6b878; font-size: 1rem; font-variant-numeric: tabular-nums; }
+.entry h3 { margin-top: .45rem; font-size: clamp(1.6rem, 2.7vw, 2.7rem); line-height: 1.12; }
+@keyframes milestoneArrival {
+  from { opacity: .45; transform: translateY(1.25rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media screen and (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) and (animation-range: entry 0% cover 30%) {
+    .copy {
+      animation: milestoneArrival 1s linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 30%;
+    }
+  }
+}
+@media (max-width: 48rem) {
+  .layout { grid-template-columns: 1fr; gap: 2.75rem; }
+  .intro { position: static; }
+  .entry { padding-left: 1.4rem; }
+}
