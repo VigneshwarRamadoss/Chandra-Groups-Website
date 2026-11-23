@@ -1,11 +1,17 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+} from 'react';
+
 import { Navigation } from '@/components/Navigation';
 import { Hero } from '@/components/Hero';
 import { TrustedClients } from '@/components/TrustedClients';
 import { Philosophy } from '@/components/Philosophy';
 import { About } from '@/components/About';
+import { Timeline } from '@/components/Timeline';
 import { FeaturedExperience } from '@/components/FeaturedExperience';
 import { EventExperiences } from '@/components/EventExperiences';
 import { Process } from '@/components/Process';
@@ -14,65 +20,120 @@ import { Footer } from '@/components/Footer';
 import { EnquiryModal } from '@/components/EnquiryModal';
 
 export default function Home() {
-  const [enquiryOpen, setEnquiryOpen] = useState(false);
-  const [isMediaReady, setIsMediaReady] = useState(false);
+  const [
+    enquiryOpen,
+    setEnquiryOpen,
+  ] = useState(false);
+
+  const [
+    isMediaReady,
+    setIsMediaReady,
+  ] = useState(false);
 
   useEffect(() => {
-    // Safety fallback timer for slow networks (max 2.5s wait for video ready event)
-    const safetyTimer = setTimeout(() => {
-      setIsMediaReady(true);
-    }, 2500);
+    /*
+     * Safety fallback for slow networks.
+     */
+    const safetyTimer =
+      setTimeout(() => {
+        setIsMediaReady(
+          true
+        );
+      }, 2500);
 
-    return () => clearTimeout(safetyTimer);
+    return () =>
+      clearTimeout(
+        safetyTimer
+      );
   }, []);
 
-  const handleMediaReady = useCallback(() => {
-    setIsMediaReady(true);
-  }, []);
+  const handleMediaReady =
+    useCallback(() => {
+      setIsMediaReady(
+        true
+      );
+    }, []);
 
   return (
     <>
       {/* HEADER NAVIGATION */}
+
       <Navigation
-        onOpenEnquiry={() => setEnquiryOpen(true)}
+        onOpenEnquiry={() =>
+          setEnquiryOpen(
+            true
+          )
+        }
       />
 
       <main id="main-content">
         {/* 01 — HERO */}
+
         <Hero
-          onOpenEnquiry={() => setEnquiryOpen(true)}
-          onMediaReady={handleMediaReady}
+          onOpenEnquiry={() =>
+            setEnquiryOpen(
+              true
+            )
+          }
+          onMediaReady={
+            handleMediaReady
+          }
         />
 
-        {/* 01.5 — TRUSTED CLIENTS RAIL */}
+        {/* 01.5 — TRUSTED CLIENTS */}
+
         <TrustedClients />
 
-        {/* 02 — MORE THAN EVENTS / PHILOSOPHY */}
+        {/* 02 — PHILOSOPHY */}
+
         <Philosophy />
 
-        {/* 02.5 — ABOUT CHANDRA / CINEMATIC SPLIT-SCREEN SCROLL STORY */}
+        {/* 02.5 — ABOUT */}
+
         <About />
 
+        {/* 02.75 — OUR TIMELINE */}
+
+        <Timeline />
+
         {/* 03 — FEATURED EXPERIENCE */}
+
         <FeaturedExperience />
 
-        {/* 04 — EVERY EVENT. A NEW STORY / EVENT EXPERIENCES */}
+        {/* 04 — EVENT EXPERIENCES */}
+
         <EventExperiences />
 
-        {/* 05 — HOW WE BRING IT TO LIFE / PROCESS */}
+        {/* 05 — PROCESS */}
+
         <Process />
 
-        {/* 06 — FINAL EXPERIENCE CTA */}
-        <FinalCTA onOpenEnquiry={() => setEnquiryOpen(true)} />
+        {/* 06 — FINAL CTA */}
+
+        <FinalCTA
+          onOpenEnquiry={() =>
+            setEnquiryOpen(
+              true
+            )
+          }
+        />
       </main>
 
       {/* 07 — FOOTER */}
+
       <Footer />
 
-      {/* Overlays / Modals */}
+      {/* OVERLAYS */}
+
       <EnquiryModal
-        isOpen={enquiryOpen}
-        onClose={() => setEnquiryOpen(false)}
+        isOpen={
+          enquiryOpen
+        }
+        onClose={() =>
+          setEnquiryOpen(
+            false
+          )
+        }
       />
     </>
   );
