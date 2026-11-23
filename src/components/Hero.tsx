@@ -15,7 +15,6 @@ export const Hero: React.FC<HeroProps> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Hero remains the visual host for the one-time splash overlay.
   const heroTrackRef = useRef<HTMLElement>(null);
 
   // Preloader/GSAP directly controls this.
@@ -302,7 +301,6 @@ export const Hero: React.FC<HeroProps> = ({
             ONE-TIME SPLASH OVERLAY INSIDE HERO
             ===================================================== */}
         <Preloader
-          introTrackRef={heroTrackRef}
           heroForegroundRef={foregroundRef}
         />
       </div>
@@ -403,17 +401,6 @@ export const Hero: React.FC<HeroProps> = ({
 
           justify-content: space-between;
           align-items: center;
-
-          /*
-           * GSAP owns these properties.
-           */
-          opacity: 0;
-          transform: translateY(12px);
-          pointer-events: none;
-
-          will-change:
-            opacity,
-            transform;
         }
 
         .hero-title {

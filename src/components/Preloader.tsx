@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useLayoutEffect, useRef } from 'react';
 import gsap from 'gsap';
 
 interface PreloaderProps {
-  introTrackRef: React.RefObject<HTMLElement | null>;
   heroForegroundRef: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -18,7 +17,6 @@ const DIAMOND_PATH =
   'M 174 0 L 176 1 L 184 1 L 194 4 L 204 10 L 338 142 L 346 153 L 351 167 L 351 183 L 350 184 L 350 188 L 343 203 L 245 303 L 207 341 L 200 346 L 187 351 L 166 351 L 159 349 L 147 342 L 9 205 L 1 188 L 1 184 L 0 183 L 1 166 L 5 155 L 12 145 L 146 10 L 159 3 L 166 1 L 173 1 Z';
 
 export const Preloader: React.FC<PreloaderProps> = ({
-  introTrackRef,
   heroForegroundRef,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -37,11 +35,8 @@ export const Preloader: React.FC<PreloaderProps> = ({
   const borderScaleGroupRef = useRef<SVGGElement>(null);
   const borderSvgRef = useRef<SVGSVGElement>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const container = containerRef.current;
-    const preloaderVideo = videoRef.current;
-
-    const track = introTrackRef.current;
     const foreground = heroForegroundRef.current;
 
     const bootCover = bootCoverRef.current;
@@ -69,56 +64,23 @@ export const Preloader: React.FC<PreloaderProps> = ({
         'chandra-navigation'
       );
 
-    /*
-     * Hero.tsx already owns this video.
-     * We only make sure it is playing
-     * before opening the diamond.
-     */
-    const heroVideo =
-      document.querySelector<HTMLVideoElement>(
-        '.hero-video'
-      );
-
-    if (
-      !container ||
-      !preloaderVideo ||
-      !track ||
-      !foreground ||
-      !bootCover ||
-      !blackOverlay ||
-      !anniversary ||
-      !maskPositionGroup ||
-      !maskScaleGroup ||
-      !borderPositionGroup ||
-      !borderScaleGroup ||
-      !borderSvg
-    ) {
+    if (!container || !foreground || !maskPositionGroup || !maskScaleGroup || !blackOverlay || !brand || !anniversary || !particleLayer) {
       return;
     }
 
-    const MASK_SIZE = 120;
-    const MASK_HALF = MASK_SIZE / 2;
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (mediaQuery.matches || window.location.hash || window.scrollY > 0) return;
+
+    const SYMBOL_CENTER_SHIFT = 367;
+    const MASK_BASE_SIZE = 120;
+    const MASK_HALF = MASK_BASE_SIZE / 2;
 
     let finalScale = 1;
     let resizeFrame = 0;
 
-    let introFinished = false;
-    let playbackStarted = false;
-    let firstFrameRevealed = false;
-
-    /* =====================================================
-       DIAMOND GEOMETRY
-       ===================================================== */
-
-    const calculateGeometry = () => {
-      const width =
-        container.clientWidth ||
-        window.innerWidth;
-
-      const height =
-        container.clientHeight ||
-        window.innerHeight;
-
+    const calculateMaskGeometry = () => {
+      const width = container.clientWidth || window.innerWidth;
+      const height = container.clientHeight || window.innerHeight;
       const cx = width / 2;
       const cy = height / 2;
 
@@ -169,625 +131,277 @@ export const Preloader: React.FC<PreloaderProps> = ({
         ) * 1.15;
     };
 
-    calculateGeometry();
+    const symbolShift = brand.querySelector('#logo-symbol-shift') as SVGGElement | null;
+    const symbol = brand.querySelector('#logo-symbol') as SVGGElement | null;
 
-    /* =====================================================
-       REDUCED MOTION
-       ===================================================== */
+    if (!symbolShift || !symbol) return;
 
-    const mediaQuery =
-      window.matchMedia(
-        '(prefers-reduced-motion: reduce)'
-      );
+    const letters = [
+      '#letter-c',
+      '#letter-h',
+      '#letter-a1',
+      '#letter-n',
+      '#letter-d',
+      '#letter-r',
+      '#letter-a2',
+    ]
+      .map((selector) => brand.querySelector(selector))
+      .filter(Boolean) as SVGGElement[];
 
-    if (mediaQuery.matches) {
-      maskScaleGroup.setAttribute(
-        'transform',
-        `scale(${finalScale})`
-      );
+    const particleAnimations: gsap.core.Animation[] = [];
 
-      gsap.set(container, {
-        display: 'none',
-      });
-
-      gsap.set(foreground, {
-        opacity: 1,
-        y: 0,
-        pointerEvents: 'auto',
-      });
-
-      if (navigation) {
-        gsap.set(navigation, {
-          opacity: 1,
-          y: 0,
-          pointerEvents: 'auto',
-        });
-      }
-
-      heroVideo
-        ?.play()
-        .catch(() => {});
-
-      return;
-    }
-
-    /* =====================================================
-       LOCK DOCUMENT WHILE INTRO RUNS
-       ===================================================== */
-
-    const previousBodyOverflow =
-      document.body.style.overflow;
-
-    const previousHtmlOverflow =
-      document.documentElement.style
-        .overflow;
-
-    const previousScrollBehavior =
-      document.documentElement.style
-        .scrollBehavior;
-
-    document.body.style.overflow =
-      'hidden';
-
-    document.documentElement.style.overflow =
-      'hidden';
-
-    document.documentElement.style.scrollBehavior =
-      'auto';
-
-    window.scrollTo(0, 0);
-
-    const restoreScroll = () => {
-      document.body.style.overflow =
-        previousBodyOverflow;
-
-      document.documentElement.style.overflow =
-        previousHtmlOverflow;
-
-      document.documentElement.style.scrollBehavior =
-        previousScrollBehavior;
+    const clearParticles = () => {
+      particleAnimations.splice(0).forEach((animation) => animation.kill());
+      particleLayer.replaceChildren();
     };
 
-    /* =====================================================
-       INITIAL STATE
-       ===================================================== */
+    /*
+     * Build particles FROM the actual inline SVG geometry.
+     *
+     * Instead of scattering random dots inside each element's rectangle,
+     * points are accepted only when they fall inside the real SVG fill or
+     * stroke. This makes the CHANDRA mark visually break into its own pieces.
+     */
+    const spawnLogoParticles = () => {
+      clearParticles();
 
-    const ctx = gsap.context(() => {
-      gsap.set(container, {
-        opacity: 1,
-        visibility: 'visible',
+      const containerRect = container.getBoundingClientRect();
+      const brandRect = brand.getBoundingClientRect();
+      const logoCenterX = brandRect.left - containerRect.left + brandRect.width / 2;
+      const logoCenterY = brandRect.top - containerRect.top + brandRect.height / 2;
+
+      const geometryPaths = Array.from(
+        brand.querySelectorAll<SVGGeometryElement>(
+          '#logo-symbol path, #logo-wordmark path'
+        )
+      );
+
+      if (!geometryPaths.length) return;
+
+      const pathWeights = geometryPaths.map((path) => {
+        const rect = path.getBoundingClientRect();
+        return Math.max(1, rect.width * rect.height);
       });
 
-      /*
-       * Hard black on top from first frame.
-       */
-      gsap.set(bootCover, {
-        opacity: 1,
-      });
+      const totalWeight = pathWeights.reduce((sum, weight) => sum + weight, 0);
+      const totalParticles = window.innerWidth < 768 ? 72 : 120;
 
-      /*
-       * IMPORTANT:
-       * Video remains invisible until its
-       * first real decoded frame exists.
-       */
-      gsap.set(preloaderVideo, {
-        opacity: 0,
-        visibility: 'hidden',
-      });
+      geometryPaths.forEach((path, pathIndex) => {
+        const bbox = path.getBBox();
+        const screenMatrix = path.getScreenCTM();
 
-      /*
-       * Full-screen black transition layer.
-       */
-      gsap.set(blackOverlay, {
-        opacity: 1,
-      });
+        if (!screenMatrix || bbox.width <= 0 || bbox.height <= 0) return;
 
-      /*
-       * 75+ hidden initially.
-       */
-      gsap.set(anniversary, {
-        opacity: 0,
-        y: 10,
-        scale: 0.985,
-        visibility: 'hidden',
-      });
+        const computed = window.getComputedStyle(path);
+        const fillColor = computed.fill;
+        const strokeColor = computed.stroke;
+        const hasFill = fillColor !== 'none' && fillColor !== 'rgba(0, 0, 0, 0)';
+        const hasStroke = strokeColor !== 'none' && strokeColor !== 'rgba(0, 0, 0, 0)';
 
-      /*
-       * Small starting diamond.
-       */
-      gsap.set(maskScaleGroup, {
-        attr: {
-          transform: 'scale(1)',
-        },
-      });
-
-      gsap.set(borderScaleGroup, {
-        attr: {
-          transform: 'scale(1)',
-        },
-      });
-
-      gsap.set(borderSvg, {
-        opacity: 0,
-      });
-
-      /*
-       * Hero foreground stays hidden.
-       */
-      gsap.set(foreground, {
-        opacity: 0,
-        y: 12,
-        pointerEvents: 'none',
-      });
-
-      if (navigation) {
-        gsap.set(navigation, {
-          opacity: 0,
-          y: -6,
-          pointerEvents: 'none',
-        });
-      }
-    }, container);
-
-    /* =====================================================
-       FIRST VIDEO FRAME
-
-       Fixes reload / bottom-up emergence.
-       ===================================================== */
-
-    const revealFirstVideoFrame = () => {
-      if (firstFrameRevealed) {
-        return;
-      }
-
-      firstFrameRevealed = true;
-
-      const reveal = () => {
-        /*
-         * Video is already absolute fullscreen
-         * before becoming visible.
-         */
-        gsap.set(preloaderVideo, {
-          visibility: 'visible',
-          opacity: 1,
-        });
-
-        /*
-         * Wait for browser paint.
-         */
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            gsap.to(bootCover, {
-              opacity: 0,
-
-              duration: 0.32,
-
-              ease: 'power1.out',
-            });
-          });
-        });
-      };
-
-      const videoWithCallback =
-        preloaderVideo as VideoWithFrameCallback;
-
-      /*
-       * Best option:
-       * wait for an actual decoded video frame.
-       */
-      if (
-        typeof videoWithCallback
-          .requestVideoFrameCallback ===
-        'function'
-      ) {
-        videoWithCallback.requestVideoFrameCallback(
-          () => {
-            reveal();
-          }
+        const targetCount = Math.max(
+          hasStroke && !hasFill ? 5 : 3,
+          Math.round((pathWeights[pathIndex] / totalWeight) * totalParticles)
         );
-      } else {
-        /*
-         * Safe fallback for older browsers.
-         */
-        requestAnimationFrame(() => {
-          requestAnimationFrame(reveal);
-        });
-      }
-    };
 
-    /* =====================================================
-       POST-VIDEO SEQUENCE
-       ===================================================== */
+        let created = 0;
+        let attempts = 0;
+        const maxAttempts = targetCount * 40;
 
-    const startPostVideoSequence = () => {
-      if (introFinished) {
-        return;
-      }
+        while (created < targetCount && attempts < maxAttempts) {
+          attempts += 1;
 
-      introFinished = true;
+          const localX = bbox.x + Math.random() * bbox.width;
+          const localY = bbox.y + Math.random() * bbox.height;
+          const localPoint = new DOMPoint(localX, localY);
 
-      /*
-       * Hero should already be loaded underneath,
-       * but explicitly make sure it is playing
-       * BEFORE opening the mask.
-       */
-      heroVideo
-        ?.play()
-        .catch(() => {});
+          let insideFill = false;
+          let insideStroke = false;
 
-      const tl = gsap.timeline({
-        onComplete: () => {
-          gsap.set(foreground, {
-            pointerEvents: 'auto',
-          });
-
-          if (navigation) {
-            gsap.set(navigation, {
-              pointerEvents: 'auto',
-            });
+          try {
+            insideFill = hasFill && path.isPointInFill(localPoint);
+            insideStroke = hasStroke && path.isPointInStroke(localPoint);
+          } catch {
+            continue;
           }
 
-          container.style.display =
-            'none';
-
-          restoreScroll();
-        },
-      });
-
-      /* =================================================
-         1 — VIDEO ENDS ON BLACK
-         ================================================= */
-
-      /*
-       * Short calm black beat.
-       */
-      tl.to({}, {
-        duration: 0.18,
-      });
-
-      /* =================================================
-         2 — 75+
-         ================================================= */
-
-      tl.set(anniversary, {
-        visibility: 'visible',
-      });
-
-      tl.to(anniversary, {
-        opacity: 1,
-
-        y: 0,
-
-        scale: 1,
-
-        duration: 0.7,
-
-        ease: 'power2.out',
-      });
-
-      /*
-       * Hold statement.
-       */
-      tl.to({}, {
-        duration: 1.6,
-      });
-
-      /* =================================================
-         3 — 75+ FADES
-         ================================================= */
-
-      tl.to(anniversary, {
-        opacity: 0,
-
-        y: -6,
-
-        duration: 0.65,
-
-        ease: 'power1.inOut',
-      });
-
-      /*
-       * Preloader video is already displaying
-       * a black frame.
-       *
-       * Remove the video at the same time.
-       */
-      tl.to(
-        preloaderVideo,
-        {
-          opacity: 0,
-
-          duration: 0.35,
-
-          ease: 'power1.inOut',
-        },
-        '<'
-      );
-
-      tl.set(anniversary, {
-        visibility: 'hidden',
-      });
-
-      /* =================================================
-         4 — GOLD DIAMOND APPEARS
-         ================================================= */
-
-      tl.to(borderSvg, {
-        opacity: 1,
-
-        duration: 0.38,
-
-        ease: 'power2.out',
-      });
-
-      /*
-       * Allow the outline to register.
-       */
-      tl.to({}, {
-        duration: 0.2,
-      });
-
-      /* =================================================
-         5 — HERO APPEARS INSIDE DIAMOND
-
-         IMPORTANT LAYERING:
-
-         Hero video
-            ↓
-         blackOverlay
-            ↓
-         mask SVG
-
-         As blackOverlay disappears,
-         mask SVG keeps everything black
-         except its transparent diamond hole.
-         ================================================= */
-
-      tl.call(() => {
-        heroVideo
-          ?.play()
-          .catch(() => {});
-      });
-
-      tl.to(blackOverlay, {
-        opacity: 0,
-
-        duration: 0.55,
-
-        ease: 'power1.inOut',
-      });
-
-      /*
-       * Small Hero-video diamond stays visible
-       * before expansion.
-       */
-      tl.to({}, {
-        duration: 0.38,
-      });
-
-      /* =================================================
-         6 — EXPAND DIAMOND
-         ================================================= */
-
-      tl.to(maskScaleGroup, {
-        attr: {
-          transform: () =>
-            `scale(${finalScale})`,
-        },
-
-        duration: 1.4,
-
-        ease: 'power2.inOut',
-      });
-
-      /*
-       * Gold outline follows exact same growth.
-       */
-      tl.to(
-        borderScaleGroup,
-        {
-          attr: {
-            transform: () =>
-              `scale(${finalScale})`,
-          },
-
-          duration: 1.4,
-
-          ease: 'power2.inOut',
-        },
-        '<'
-      );
-
-      /*
-       * Fade border only near the end.
-       */
-      tl.to(
-        borderSvg,
-        {
-          opacity: 0,
-
-          duration: 0.5,
-
-          ease: 'power1.out',
-        },
-        '-=0.5'
-      );
-
-      /* =================================================
-         7 — HERO CONTENT
-         ================================================= */
-
-      tl.to(
-        foreground,
-        {
-          opacity: 1,
-
-          y: 0,
-
-          duration: 0.62,
-
-          ease: 'power2.out',
-        },
-        '-=0.42'
-      );
-
-      if (navigation) {
-        tl.to(
-          navigation,
-          {
-            opacity: 1,
-
-            y: 0,
-
-            duration: 0.62,
-
-            ease: 'power2.out',
-          },
-          '<'
-        );
-      }
-
-      tl.to({}, {
-        duration: 0.12,
-      });
-    };
-
-    /* =====================================================
-       PRELOADER VIDEO PLAYBACK
-       ===================================================== */
-
-    const handlePlaying = () => {
-      revealFirstVideoFrame();
-    };
-
-    const handleEnded = () => {
-      /*
-       * Do NOT seek.
-       *
-       * Keep exact final black frame.
-       */
-      preloaderVideo.pause();
-
-      startPostVideoSequence();
-    };
-
-    preloaderVideo.addEventListener(
-      'playing',
-      handlePlaying
-    );
-
-    preloaderVideo.addEventListener(
-      'ended',
-      handleEnded
-    );
-
-    preloaderVideo.currentTime = 0;
-
-    const startVideo = async () => {
-      if (playbackStarted) {
-        return;
-      }
-
-      playbackStarted = true;
-
-      try {
-        await preloaderVideo.play();
-      } catch {
-        /*
-         * Never trap visitor behind black screen
-         * if autoplay unexpectedly fails.
-         */
-        gsap.set(bootCover, {
-          opacity: 0,
-        });
-
-        gsap.set(preloaderVideo, {
-          opacity: 0,
-          visibility: 'hidden',
-        });
-
-        startPostVideoSequence();
-      }
-    };
-
-    if (preloaderVideo.readyState >= 3) {
-      startVideo();
-    } else {
-      preloaderVideo.addEventListener(
-        'canplay',
-        startVideo,
-        {
-          once: true,
+          if (!insideFill && !insideStroke) continue;
+
+          const screenPoint = localPoint.matrixTransform(screenMatrix);
+          const x = screenPoint.x - containerRect.left;
+          const y = screenPoint.y - containerRect.top;
+
+          const particle = document.createElement('span');
+          particle.className = 'preloader-particle';
+
+          const size = gsap.utils.random(1.2, 2.8, 0.1);
+          const color = insideFill ? fillColor : strokeColor;
+
+          particle.style.left = `${x}px`;
+          particle.style.top = `${y}px`;
+          particle.style.width = `${size}px`;
+          particle.style.height = `${size}px`;
+          particle.style.backgroundColor = color;
+
+          particleLayer.appendChild(particle);
+
+          const fromCenterX = x - logoCenterX;
+          const fromCenterY = y - logoCenterY;
+          const distance = Math.hypot(fromCenterX, fromCenterY) || 1;
+          const directionX = fromCenterX / distance;
+          const directionY = fromCenterY / distance;
+
+          // Slow, restrained drift — not an explosion.
+          const travel = gsap.utils.random(10, 34);
+          const driftX = directionX * travel + gsap.utils.random(-7, 7);
+          const driftY = directionY * travel + gsap.utils.random(-7, 7);
+          const delay = gsap.utils.random(0, 0.07);
+
+          const particleTimeline = gsap.timeline({ delay });
+
+          particleTimeline
+            .fromTo(
+              particle,
+              {
+                opacity: 0,
+                scale: 0.8,
+                x: 0,
+                y: 0,
+              },
+              {
+                opacity: gsap.utils.random(0.72, 1),
+                scale: 1,
+                duration: 0.10,
+                ease: 'power1.out',
+              }
+            )
+            .to(
+              particle,
+              {
+                x: driftX,
+                y: driftY,
+                opacity: 0,
+                scale: gsap.utils.random(0.25, 0.55),
+                duration: gsap.utils.random(0.34, 0.52),
+                ease: 'power1.out',
+              },
+              0.08
+            );
+
+          particleAnimations.push(particleTimeline);
+          created += 1;
         }
-      );
-    }
+      });
+    };
 
-    /* =====================================================
-       RESIZE
-       ===================================================== */
+    const root = document.documentElement;
+    const content = navigation ? [foreground, navigation] : [foreground];
+    let finished = false;
 
     const handleResize = () => {
-      cancelAnimationFrame(
-        resizeFrame
-      );
-
-      resizeFrame =
-        requestAnimationFrame(() => {
-          calculateGeometry();
-        });
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(calculateMaskGeometry);
     };
 
-    window.addEventListener(
-      'resize',
-      handleResize,
-      {
-        passive: true,
-      }
-    );
+    const handleMotionChange = (event: MediaQueryListEvent) => {
+      if (event.matches) finishIntro();
+    };
 
-    /* =====================================================
-       CLEANUP
-       ===================================================== */
+    const finishIntro = () => {
+      if (finished) return;
+      finished = true;
 
-    return () => {
-      cancelAnimationFrame(
-        resizeFrame
-      );
-
-      preloaderVideo.removeEventListener(
-        'playing',
-        handlePlaying
-      );
-
-      preloaderVideo.removeEventListener(
-        'ended',
-        handleEnded
-      );
-
-      preloaderVideo.removeEventListener(
-        'canplay',
-        startVideo
-      );
-
-      window.removeEventListener(
-        'resize',
-        handleResize
-      );
-
+      mediaQuery.removeEventListener('change', handleMotionChange);
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(resizeFrame);
+      clearParticles();
       ctx.revert();
-
-      restoreScroll();
+      root.classList.remove('chandra-intro-active');
     };
-  }, [
-    introTrackRef,
-    heroForegroundRef,
-  ]);
+
+    const ctx = gsap.context(() => {
+      gsap.set(container, { display: 'block' });
+      calculateMaskGeometry();
+      gsap.set(content, { autoAlpha: 0, pointerEvents: 'none' });
+      gsap.set(foreground, { y: 10 });
+      if (navigation) gsap.set(navigation, { y: -6 });
+
+      gsap.set(symbol, { opacity: 0, scale: 0.94, transformOrigin: '50% 50%' });
+      gsap.set(letters, { opacity: 0, y: 5 });
+
+      const splash = gsap.timeline({
+        defaults: { ease: 'power2.out' },
+        onComplete: finishIntro,
+      });
+
+      splash
+        .to(symbol, { opacity: 1, scale: 1, duration: 0.26 }, 0)
+        .to(symbolShift, {
+          attr: { transform: 'translate(0 0)' },
+          duration: 0.34,
+          ease: 'power2.inOut',
+        }, 0.22)
+        .to(letters, { opacity: 1, y: 0, duration: 0.18, stagger: 0.025 }, 0.56)
+        .addLabel('logoDissolve', '+=0.14')
+        .call(spawnLogoParticles, [], 'logoDissolve')
+        .to(brand, { opacity: 0, duration: 0.22 }, 'logoDissolve')
+        .addLabel('anniversary', 'logoDissolve+=0.14')
+        .fromTo(anniversary, { y: 5 }, {
+          autoAlpha: 1,
+          y: 0,
+          duration: 0.22,
+        }, 'anniversary')
+        .to(anniversary, { autoAlpha: 0, y: -4, duration: 0.23 }, 'anniversary+=0.66')
+        .addLabel('diamondReturn', 'anniversary+=0.76')
+        .set(letters, { opacity: 0 }, 'diamondReturn')
+        .set(symbolShift, {
+          attr: { transform: `translate(${SYMBOL_CENTER_SHIFT} 0)` },
+        }, 'diamondReturn')
+        .set(brand, { opacity: 1 }, 'diamondReturn')
+        .fromTo(symbol, { opacity: 0 }, { opacity: 1, duration: 0.17, immediateRender: false }, 'diamondReturn')
+        .addLabel('heroReveal')
+        .to(blackOverlay, { opacity: 0, duration: 0.16 }, 'heroReveal')
+        .to(brand, { opacity: 0, duration: 0.20 }, 'heroReveal')
+        .to(maskScaleGroup, {
+          attr: { transform: () => `scale(${finalScale})` },
+          duration: 0.55,
+          ease: 'power2.inOut',
+        }, 'heroReveal')
+        .to(content, { autoAlpha: 1, y: 0, duration: 0.36 }, 'heroReveal+=0.22');
+    }, container);
+
+    root.classList.add('chandra-intro-active');
+    window.addEventListener('resize', handleResize, { passive: true });
+    mediaQuery.addEventListener('change', handleMotionChange);
+
+    return finishIntro;
+  }, [heroForegroundRef]);
 
   return (
+
     <div
+
       ref={containerRef}
-      className="chandra-preloader"
+
       aria-hidden="true"
+      hidden
+
+      className="chandra-preloader"
+
+    >
+
+      {/* ==========================================================
+
+          HERO VIDEO REVEAL MASK
+
+          ========================================================== */}
+
+
+
+      <svg
+
+        className="preloader-mask-svg"
+
+        aria-hidden="true"
 
       /*
        * CRITICAL FIRST-PAINT STYLES.
@@ -888,62 +502,94 @@ export const Preloader: React.FC<PreloaderProps> = ({
         />
       </svg>
 
-      {/* ===================================================
-          PRELOADER VIDEO
 
-          Inline positioning prevents the
-          bottom-up reload jump.
-          =================================================== */}
 
-      <video
-        ref={videoRef}
+      {/* ==========================================================
 
-        muted
-        playsInline
-        preload="auto"
+          FULL BLACK INTRO COVER
 
-        className="preloader-video"
 
-        style={{
-          position: 'absolute',
 
-          inset: 0,
+          Prevents Hero footage appearing before
 
-          width: '100%',
-          height: '100%',
+          the logo has returned to centre.
 
-          objectFit: 'cover',
+          ========================================================== */}
 
-          objectPosition:
-            'center center',
 
-          display: 'block',
 
-          zIndex: 4,
+      <div
 
-          /*
-           * Hidden on FIRST browser paint.
-           *
-           * JS reveals it only after the
-           * first actual decoded frame.
-           */
-          opacity: 0,
-          visibility: 'hidden',
+        ref={blackOverlayRef}
 
-          background: '#070807',
+        className="preloader-black-cover"
 
-          pointerEvents: 'none',
-        }}
+      />
+
+      {/* Anniversary message crossfades with the CHANDRA particle dissolve. */}
+      <div
+        ref={anniversaryRef}
+        className="preloader-anniversary"
       >
-        <source
-          src="/media/chandra_preloader.mp4"
-          type="video/mp4"
-        />
-      </video>
+        <span className="preloader-anniversary-number">75+</span>
+        <span className="preloader-anniversary-copy">YEARS OF EXCELLENCE</span>
+      </div>
 
-      {/* ===================================================
-          GOLD DIAMOND BORDER
-          =================================================== */}
+      {/* Particle layer used only while the original inline SVG dissolves. */}
+      <div
+        ref={particleLayerRef}
+        className="preloader-particles"
+      />
+
+
+
+      {/* ==========================================================
+
+          ORIGINAL CHANDRA LOGO
+
+
+
+          SAME PATHS.
+
+          SAME COLORS.
+
+          SAME PROPORTIONS.
+
+
+
+          Only groups were separated so animation
+
+          can control symbol + letters independently.
+
+          ========================================================== */}
+
+
+
+      <div
+
+        ref={brandGroupRef}
+
+        className="preloader-brand"
+
+      >
+
+        <svg
+
+          xmlns="http://www.w3.org/2000/svg"
+
+          viewBox="0 0 1024 286"
+
+          fill="none"
+
+          className="brand-svg"
+
+        >
+
+          {/* ======================================================
+
+              DIAMOND SYMBOL
+
+              ====================================================== */}
 
       <svg
         ref={borderSvgRef}
@@ -1065,6 +711,16 @@ export const Preloader: React.FC<PreloaderProps> = ({
       />
 
       <style jsx>{`
+
+        :global(html) {
+          scrollbar-gutter: stable;
+        }
+
+        :global(html.chandra-intro-active),
+        :global(html.chandra-intro-active body) {
+          overflow-y: hidden;
+        }
+
         .chandra-preloader {
           user-select: none;
 
@@ -1232,8 +888,21 @@ export const Preloader: React.FC<PreloaderProps> = ({
           text-transform: uppercase;
         }
 
-        .preloader-boot-cover {
-          will-change: opacity;
+        .preloader-particles {
+          position: absolute;
+          inset: 0;
+          z-index: 5;
+          overflow: hidden;
+          pointer-events: none;
+        }
+
+        :global(.preloader-particle) {
+          position: absolute;
+          border-radius: 999px;
+          opacity: 0;
+          transform: translate(-50%, -50%);
+          pointer-events: none;
+          will-change: transform, opacity;
         }
 
         @media (max-width: 767px) {

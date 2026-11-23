@@ -18,6 +18,7 @@ import { Process } from '@/components/Process';
 import { FinalCTA } from '@/components/FinalCTA';
 import { Footer } from '@/components/Footer';
 import { EnquiryModal } from '@/components/EnquiryModal';
+import { SmoothWheelScroll } from '@/components/SmoothWheelScroll';
 
 export default function Home() {
   const [
@@ -56,6 +57,7 @@ export default function Home() {
 
   return (
     <>
+      <SmoothWheelScroll />
       {/* HEADER NAVIGATION */}
 
       <Navigation
