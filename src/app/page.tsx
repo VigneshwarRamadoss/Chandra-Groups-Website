@@ -10,6 +10,7 @@ import { Navigation } from '@/components/Navigation';
 import { Hero } from '@/components/Hero';
 import { TrustedClients } from '@/components/TrustedClients';
 import { Philosophy } from '@/components/Philosophy';
+import { CompanyTimeline } from '@/components/CompanyTimeline';
 import { About } from '@/components/About';
 import { Timeline } from '@/components/Timeline';
 import { FeaturedExperience } from '@/components/FeaturedExperience';
@@ -93,6 +94,7 @@ export default function Home() {
         {/* 02.5 — ABOUT */}
 
         <About />
+        <CompanyTimeline />
 
         {/* 02.75 — OUR TIMELINE */}
 
