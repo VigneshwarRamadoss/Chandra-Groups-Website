@@ -1,48 +1,97 @@
 'use client';
 
-import React, { useLayoutEffect, useRef } from 'react';
+import React, {
+  useLayoutEffect,
+  useRef,
+} from 'react';
+
 import gsap from 'gsap';
 
 interface PreloaderProps {
   heroForegroundRef: React.RefObject<HTMLDivElement | null>;
 }
 
-type VideoWithFrameCallback = HTMLVideoElement & {
-  requestVideoFrameCallback?: (
-    callback: (...args: unknown[]) => void
-  ) => number;
-};
+/* ============================================================
+   SHARED DIAMOND
+   Used by both the Hero mask and gold border.
+   ============================================================ */
 
 const DIAMOND_PATH =
   'M 174 0 L 176 1 L 184 1 L 194 4 L 204 10 L 338 142 L 346 153 L 351 167 L 351 183 L 350 184 L 350 188 L 343 203 L 245 303 L 207 341 L 200 346 L 187 351 L 166 351 L 159 349 L 147 342 L 9 205 L 1 188 L 1 184 L 0 183 L 1 166 L 5 155 L 12 145 L 146 10 L 159 3 L 166 1 L 173 1 Z';
 
+const LOGO_SVG =
+  '/media/chandra-preloader-logo.svg';
+
+/*
+ * Both mask and gold border start
+ * at exactly this size.
+ */
+const REVEAL_SIZE = 120;
+
+const LOGO_VIEWBOX_WIDTH = 1122;
+const LOGO_VIEWBOX_HEIGHT = 1428;
+
 export const Preloader: React.FC<PreloaderProps> = ({
   heroForegroundRef,
 }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef =
+    useRef<HTMLDivElement>(null);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const blackOverlayRef =
+    useRef<HTMLDivElement>(null);
 
-  const bootCoverRef = useRef<HTMLDivElement>(null);
-  const blackOverlayRef = useRef<HTMLDivElement>(null);
+  const logoStageRef =
+    useRef<HTMLDivElement>(null);
 
-  const anniversaryRef = useRef<HTMLDivElement>(null);
+  const logoSvgRef =
+    useRef<SVGSVGElement>(null);
 
-  const maskPositionGroupRef = useRef<SVGGElement>(null);
-  const maskScaleGroupRef = useRef<SVGGElement>(null);
+  const logoSymbolRef =
+    useRef<SVGGElement>(null);
 
-  const borderPositionGroupRef = useRef<SVGGElement>(null);
-  const borderScaleGroupRef = useRef<SVGGElement>(null);
-  const borderSvgRef = useRef<SVGSVGElement>(null);
+  const logoWordingRef =
+    useRef<SVGGElement>(null);
+
+  /* HERO MASK */
+
+  const maskPositionGroupRef =
+    useRef<SVGGElement>(null);
+
+  const maskScaleGroupRef =
+    useRef<SVGGElement>(null);
+
+  /* GOLD BORDER */
+
+  const borderPositionGroupRef =
+    useRef<SVGGElement>(null);
+
+  const borderScaleGroupRef =
+    useRef<SVGGElement>(null);
+
+  const borderSvgRef =
+    useRef<SVGSVGElement>(null);
 
   useLayoutEffect(() => {
-    const container = containerRef.current;
-    const foreground = heroForegroundRef.current;
+    const container =
+      containerRef.current;
 
-    const bootCover = bootCoverRef.current;
-    const blackOverlay = blackOverlayRef.current;
+    const foreground =
+      heroForegroundRef.current;
 
-    const anniversary = anniversaryRef.current;
+    const blackOverlay =
+      blackOverlayRef.current;
+
+    const logoStage =
+      logoStageRef.current;
+
+    const logoSvg =
+      logoSvgRef.current;
+
+    const logoSymbol =
+      logoSymbolRef.current;
+
+    const logoWording =
+      logoWordingRef.current;
 
     const maskPositionGroup =
       maskPositionGroupRef.current;
@@ -64,385 +113,741 @@ export const Preloader: React.FC<PreloaderProps> = ({
         'chandra-navigation'
       );
 
-    if (!container || !foreground || !maskPositionGroup || !maskScaleGroup || !blackOverlay || !brand || !anniversary || !particleLayer) {
+    if (
+      !container ||
+      !foreground ||
+      !blackOverlay ||
+      !logoStage ||
+      !logoSvg ||
+      !logoSymbol ||
+      !logoWording ||
+      !maskPositionGroup ||
+      !maskScaleGroup ||
+      !borderPositionGroup ||
+      !borderScaleGroup ||
+      !borderSvg
+    ) {
       return;
     }
 
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    if (mediaQuery.matches || window.location.hash || window.scrollY > 0) return;
+    const content =
+      navigation
+        ? [foreground, navigation]
+        : [foreground];
 
-    const SYMBOL_CENTER_SHIFT = 367;
-    const MASK_BASE_SIZE = 120;
-    const MASK_HALF = MASK_BASE_SIZE / 2;
+    const mediaQuery =
+      window.matchMedia(
+        '(prefers-reduced-motion: reduce)'
+      );
+
+    /* ============================================================
+       SKIP PRELOADER
+       ============================================================ */
+
+    if (
+      mediaQuery.matches ||
+      window.location.hash ||
+      window.scrollY > 0
+    ) {
+      gsap.set(content, {
+        autoAlpha: 1,
+        y: 0,
+        pointerEvents: 'auto',
+      });
+
+      container.style.display =
+        'none';
+
+      return;
+    }
+
+    const root =
+      document.documentElement;
+
+    root.classList.add(
+      'chandra-intro-active'
+    );
 
     let finalScale = 1;
+
+    let logoTargetX = 0;
+    let logoTargetY = 0;
+    let logoTargetScale = 1;
+
     let resizeFrame = 0;
-
-    const calculateMaskGeometry = () => {
-      const width = container.clientWidth || window.innerWidth;
-      const height = container.clientHeight || window.innerHeight;
-      const cx = width / 2;
-      const cy = height / 2;
-
-      /*
-       * Mask and gold border always share
-       * the exact same centre.
-       */
-      maskPositionGroup.setAttribute(
-        'transform',
-        `translate(${cx} ${cy})`
-      );
-
-      borderPositionGroup.setAttribute(
-        'transform',
-        `translate(${cx} ${cy})`
-      );
-
-      /*
-       * Calculate enough scale for the
-       * diamond to cover all four corners.
-       */
-      const sTL =
-        Math.abs(cx) / MASK_HALF +
-        Math.abs(cy) / MASK_HALF;
-
-      const sTR =
-        Math.abs(width - cx) /
-          MASK_HALF +
-        Math.abs(cy) / MASK_HALF;
-
-      const sBL =
-        Math.abs(cx) / MASK_HALF +
-        Math.abs(height - cy) /
-          MASK_HALF;
-
-      const sBR =
-        Math.abs(width - cx) /
-          MASK_HALF +
-        Math.abs(height - cy) /
-          MASK_HALF;
-
-      finalScale =
-        Math.max(
-          sTL,
-          sTR,
-          sBL,
-          sBR
-        ) * 1.15;
-    };
-
-    const symbolShift = brand.querySelector('#logo-symbol-shift') as SVGGElement | null;
-    const symbol = brand.querySelector('#logo-symbol') as SVGGElement | null;
-
-    if (!symbolShift || !symbol) return;
-
-    const letters = [
-      '#letter-c',
-      '#letter-h',
-      '#letter-a1',
-      '#letter-n',
-      '#letter-d',
-      '#letter-r',
-      '#letter-a2',
-    ]
-      .map((selector) => brand.querySelector(selector))
-      .filter(Boolean) as SVGGElement[];
-
-    const particleAnimations: gsap.core.Animation[] = [];
-
-    const clearParticles = () => {
-      particleAnimations.splice(0).forEach((animation) => animation.kill());
-      particleLayer.replaceChildren();
-    };
-
-    /*
-     * Build particles FROM the actual inline SVG geometry.
-     *
-     * Instead of scattering random dots inside each element's rectangle,
-     * points are accepted only when they fall inside the real SVG fill or
-     * stroke. This makes the CHANDRA mark visually break into its own pieces.
-     */
-    const spawnLogoParticles = () => {
-      clearParticles();
-
-      const containerRect = container.getBoundingClientRect();
-      const brandRect = brand.getBoundingClientRect();
-      const logoCenterX = brandRect.left - containerRect.left + brandRect.width / 2;
-      const logoCenterY = brandRect.top - containerRect.top + brandRect.height / 2;
-
-      const geometryPaths = Array.from(
-        brand.querySelectorAll<SVGGeometryElement>(
-          '#logo-symbol path, #logo-wordmark path'
-        )
-      );
-
-      if (!geometryPaths.length) return;
-
-      const pathWeights = geometryPaths.map((path) => {
-        const rect = path.getBoundingClientRect();
-        return Math.max(1, rect.width * rect.height);
-      });
-
-      const totalWeight = pathWeights.reduce((sum, weight) => sum + weight, 0);
-      const totalParticles = window.innerWidth < 768 ? 72 : 120;
-
-      geometryPaths.forEach((path, pathIndex) => {
-        const bbox = path.getBBox();
-        const screenMatrix = path.getScreenCTM();
-
-        if (!screenMatrix || bbox.width <= 0 || bbox.height <= 0) return;
-
-        const computed = window.getComputedStyle(path);
-        const fillColor = computed.fill;
-        const strokeColor = computed.stroke;
-        const hasFill = fillColor !== 'none' && fillColor !== 'rgba(0, 0, 0, 0)';
-        const hasStroke = strokeColor !== 'none' && strokeColor !== 'rgba(0, 0, 0, 0)';
-
-        const targetCount = Math.max(
-          hasStroke && !hasFill ? 5 : 3,
-          Math.round((pathWeights[pathIndex] / totalWeight) * totalParticles)
-        );
-
-        let created = 0;
-        let attempts = 0;
-        const maxAttempts = targetCount * 40;
-
-        while (created < targetCount && attempts < maxAttempts) {
-          attempts += 1;
-
-          const localX = bbox.x + Math.random() * bbox.width;
-          const localY = bbox.y + Math.random() * bbox.height;
-          const localPoint = new DOMPoint(localX, localY);
-
-          let insideFill = false;
-          let insideStroke = false;
-
-          try {
-            insideFill = hasFill && path.isPointInFill(localPoint);
-            insideStroke = hasStroke && path.isPointInStroke(localPoint);
-          } catch {
-            continue;
-          }
-
-          if (!insideFill && !insideStroke) continue;
-
-          const screenPoint = localPoint.matrixTransform(screenMatrix);
-          const x = screenPoint.x - containerRect.left;
-          const y = screenPoint.y - containerRect.top;
-
-          const particle = document.createElement('span');
-          particle.className = 'preloader-particle';
-
-          const size = gsap.utils.random(1.2, 2.8, 0.1);
-          const color = insideFill ? fillColor : strokeColor;
-
-          particle.style.left = `${x}px`;
-          particle.style.top = `${y}px`;
-          particle.style.width = `${size}px`;
-          particle.style.height = `${size}px`;
-          particle.style.backgroundColor = color;
-
-          particleLayer.appendChild(particle);
-
-          const fromCenterX = x - logoCenterX;
-          const fromCenterY = y - logoCenterY;
-          const distance = Math.hypot(fromCenterX, fromCenterY) || 1;
-          const directionX = fromCenterX / distance;
-          const directionY = fromCenterY / distance;
-
-          // Slow, restrained drift — not an explosion.
-          const travel = gsap.utils.random(10, 34);
-          const driftX = directionX * travel + gsap.utils.random(-7, 7);
-          const driftY = directionY * travel + gsap.utils.random(-7, 7);
-          const delay = gsap.utils.random(0, 0.07);
-
-          const particleTimeline = gsap.timeline({ delay });
-
-          particleTimeline
-            .fromTo(
-              particle,
-              {
-                opacity: 0,
-                scale: 0.8,
-                x: 0,
-                y: 0,
-              },
-              {
-                opacity: gsap.utils.random(0.72, 1),
-                scale: 1,
-                duration: 0.10,
-                ease: 'power1.out',
-              }
-            )
-            .to(
-              particle,
-              {
-                x: driftX,
-                y: driftY,
-                opacity: 0,
-                scale: gsap.utils.random(0.25, 0.55),
-                duration: gsap.utils.random(0.34, 0.52),
-                ease: 'power1.out',
-              },
-              0.08
-            );
-
-          particleAnimations.push(particleTimeline);
-          created += 1;
-        }
-      });
-    };
-
-    const root = document.documentElement;
-    const content = navigation ? [foreground, navigation] : [foreground];
     let finished = false;
 
-    const handleResize = () => {
-      cancelAnimationFrame(resizeFrame);
-      resizeFrame = requestAnimationFrame(calculateMaskGeometry);
-    };
+    /* ============================================================
+       SYMBOL LOCAL GEOMETRY
+       ============================================================ */
 
-    const handleMotionChange = (event: MediaQueryListEvent) => {
-      if (event.matches) finishIntro();
-    };
+    const symbolBBox =
+      logoSymbol.getBBox();
 
-    const finishIntro = () => {
-      if (finished) return;
-      finished = true;
+    const symbolCenterX =
+      symbolBBox.x +
+      symbolBBox.width / 2;
 
-      mediaQuery.removeEventListener('change', handleMotionChange);
-      window.removeEventListener('resize', handleResize);
-      cancelAnimationFrame(resizeFrame);
-      clearParticles();
-      ctx.revert();
-      root.classList.remove('chandra-intro-active');
-    };
+    const symbolCenterY =
+      symbolBBox.y +
+      symbolBBox.height / 2;
 
-    const ctx = gsap.context(() => {
-      gsap.set(container, { display: 'block' });
-      calculateMaskGeometry();
-      gsap.set(content, { autoAlpha: 0, pointerEvents: 'none' });
-      gsap.set(foreground, { y: 10 });
-      if (navigation) gsap.set(navigation, { y: -6 });
+    const symbolOrigin =
+      `${symbolCenterX} ${symbolCenterY}`;
 
-      gsap.set(symbol, { opacity: 0, scale: 0.94, transformOrigin: '50% 50%' });
-      gsap.set(letters, { opacity: 0, y: 5 });
+    /* ============================================================
+       CALCULATE MASK + GOLD BORDER
+       ============================================================ */
 
-      const splash = gsap.timeline({
-        defaults: { ease: 'power2.out' },
-        onComplete: finishIntro,
-      });
+    const calculateMaskGeometry =
+      () => {
+        const width =
+          container.clientWidth ||
+          window.innerWidth;
 
-      splash
-        .to(symbol, { opacity: 1, scale: 1, duration: 0.26 }, 0)
-        .to(symbolShift, {
-          attr: { transform: 'translate(0 0)' },
-          duration: 0.34,
-          ease: 'power2.inOut',
-        }, 0.22)
-        .to(letters, { opacity: 1, y: 0, duration: 0.18, stagger: 0.025 }, 0.56)
-        .addLabel('logoDissolve', '+=0.14')
-        .call(spawnLogoParticles, [], 'logoDissolve')
-        .to(brand, { opacity: 0, duration: 0.22 }, 'logoDissolve')
-        .addLabel('anniversary', 'logoDissolve+=0.14')
-        .fromTo(anniversary, { y: 5 }, {
+        const height =
+          container.clientHeight ||
+          window.innerHeight;
+
+        const cx =
+          width / 2;
+
+        const cy =
+          height / 2;
+
+        /*
+         * Mask + border always share
+         * exact screen centre.
+         */
+
+        maskPositionGroup.setAttribute(
+          'transform',
+          `translate(${cx} ${cy})`
+        );
+
+        borderPositionGroup.setAttribute(
+          'transform',
+          `translate(${cx} ${cy})`
+        );
+
+        const maskHalf =
+          REVEAL_SIZE / 2;
+
+        const sTL =
+          Math.abs(cx) /
+            maskHalf +
+          Math.abs(cy) /
+            maskHalf;
+
+        const sTR =
+          Math.abs(
+            width - cx
+          ) /
+            maskHalf +
+          Math.abs(cy) /
+            maskHalf;
+
+        const sBL =
+          Math.abs(cx) /
+            maskHalf +
+          Math.abs(
+            height - cy
+          ) /
+            maskHalf;
+
+        const sBR =
+          Math.abs(
+            width - cx
+          ) /
+            maskHalf +
+          Math.abs(
+            height - cy
+          ) /
+            maskHalf;
+
+        finalScale =
+          Math.max(
+            sTL,
+            sTR,
+            sBL,
+            sBR
+          ) * 1.15;
+      };
+
+    /* ============================================================
+       LOGO → BORDER EXACT MATCH
+       ============================================================ */
+
+    const calculateLogoMatch =
+      () => {
+        const svgRect =
+          logoSvg.getBoundingClientRect();
+
+        if (
+          svgRect.width <= 0 ||
+          symbolBBox.width <= 0 ||
+          symbolBBox.height <= 0
+        ) {
+          return;
+        }
+
+        /*
+         * Convert CSS pixel target
+         * into SVG units.
+         */
+
+        const unitsPerPixel =
+          LOGO_VIEWBOX_WIDTH /
+          svgRect.width;
+
+        const targetSizeInSvgUnits =
+          REVEAL_SIZE *
+          unitsPerPixel;
+
+        /*
+         * Fit actual symbol inside
+         * exact 120 × 120 reveal.
+         */
+
+        logoTargetScale =
+          targetSizeInSvgUnits /
+          Math.max(
+            symbolBBox.width,
+            symbolBBox.height
+          );
+
+        /*
+         * Root SVG is centred.
+         */
+
+        const targetCenterX =
+          LOGO_VIEWBOX_WIDTH / 2;
+
+        const targetCenterY =
+          LOGO_VIEWBOX_HEIGHT / 2;
+
+        logoTargetX =
+          targetCenterX -
+          symbolCenterX;
+
+        logoTargetY =
+          targetCenterY -
+          symbolCenterY;
+      };
+
+    calculateMaskGeometry();
+    calculateLogoMatch();
+
+    /* ============================================================
+       CLEANUP
+       ============================================================ */
+
+    let ctx: gsap.Context;
+
+    const handleResize =
+      () => {
+        cancelAnimationFrame(
+          resizeFrame
+        );
+
+        resizeFrame =
+          requestAnimationFrame(
+            () => {
+              calculateMaskGeometry();
+              calculateLogoMatch();
+            }
+          );
+      };
+
+    const finishIntro =
+      () => {
+        if (finished) return;
+
+        finished = true;
+
+        window.removeEventListener(
+          'resize',
+          handleResize
+        );
+
+        mediaQuery.removeEventListener(
+          'change',
+          handleMotionChange
+        );
+
+        cancelAnimationFrame(
+          resizeFrame
+        );
+
+        root.classList.remove(
+          'chandra-intro-active'
+        );
+
+        gsap.set(content, {
           autoAlpha: 1,
           y: 0,
-          duration: 0.22,
-        }, 'anniversary')
-        .to(anniversary, { autoAlpha: 0, y: -4, duration: 0.23 }, 'anniversary+=0.66')
-        .addLabel('diamondReturn', 'anniversary+=0.76')
-        .set(letters, { opacity: 0 }, 'diamondReturn')
-        .set(symbolShift, {
-          attr: { transform: `translate(${SYMBOL_CENTER_SHIFT} 0)` },
-        }, 'diamondReturn')
-        .set(brand, { opacity: 1 }, 'diamondReturn')
-        .fromTo(symbol, { opacity: 0 }, { opacity: 1, duration: 0.17, immediateRender: false }, 'diamondReturn')
-        .addLabel('heroReveal')
-        .to(blackOverlay, { opacity: 0, duration: 0.16 }, 'heroReveal')
-        .to(brand, { opacity: 0, duration: 0.20 }, 'heroReveal')
-        .to(maskScaleGroup, {
-          attr: { transform: () => `scale(${finalScale})` },
-          duration: 0.55,
-          ease: 'power2.inOut',
-        }, 'heroReveal')
-        .to(content, { autoAlpha: 1, y: 0, duration: 0.36 }, 'heroReveal+=0.22');
-    }, container);
+          pointerEvents: 'auto',
+        });
 
-    root.classList.add('chandra-intro-active');
-    window.addEventListener('resize', handleResize, { passive: true });
-    mediaQuery.addEventListener('change', handleMotionChange);
+        container.style.display =
+          'none';
+      };
 
-    return finishIntro;
+    const handleMotionChange = (
+      event: MediaQueryListEvent
+    ) => {
+      if (event.matches) {
+        finishIntro();
+      }
+    };
+
+    /* ============================================================
+       GSAP
+       ============================================================ */
+
+    ctx = gsap.context(
+      () => {
+        /* HERO */
+
+        gsap.set(content, {
+          autoAlpha: 0,
+          pointerEvents: 'none',
+        });
+
+        gsap.set(
+          foreground,
+          {
+            y: 10,
+          }
+        );
+
+        if (navigation) {
+          gsap.set(
+            navigation,
+            {
+              y: -6,
+            }
+          );
+        }
+
+        /* BLACK */
+
+        gsap.set(
+          blackOverlay,
+          {
+            opacity: 1,
+          }
+        );
+
+        /* LOGO */
+
+        gsap.set(
+          logoStage,
+          {
+            autoAlpha: 1,
+          }
+        );
+
+        gsap.set(
+          logoSymbol,
+          {
+            autoAlpha: 0,
+
+            x: 0,
+            y: 0,
+
+            scale: 0.92,
+
+            svgOrigin:
+              symbolOrigin,
+          }
+        );
+
+        /* WORDING */
+
+        gsap.set(
+          logoWording,
+          {
+            autoAlpha: 0,
+
+            y: 10,
+          }
+        );
+
+        /* MASK */
+
+        gsap.set(
+          maskScaleGroup,
+          {
+            attr: {
+              transform:
+                'scale(1)',
+            },
+          }
+        );
+
+        /* GOLD BORDER */
+
+        gsap.set(
+          borderScaleGroup,
+          {
+            attr: {
+              transform:
+                'scale(1)',
+            },
+          }
+        );
+
+        gsap.set(
+          borderSvg,
+          {
+            autoAlpha: 0,
+          }
+        );
+
+        /* ========================================================
+           MAIN SEQUENCE — SLOWER VERSION
+           ======================================================== */
+
+        const splash =
+          gsap.timeline({
+            defaults: {
+              ease:
+                'power2.out',
+            },
+
+            onComplete:
+              finishIntro,
+          });
+
+        /* ========================================================
+           01 — SYMBOL APPEARS
+           ======================================================== */
+
+        splash.to(
+          logoSymbol,
+          {
+            autoAlpha: 1,
+
+            scale: 1,
+
+            duration: 1.1,
+
+            ease:
+              'power3.out',
+          },
+          0.15
+        );
+
+        /*
+         * Hold symbol alone.
+         */
+
+        splash.to(
+          {},
+          {
+            duration: 0.45,
+          }
+        );
+
+        /* ========================================================
+           02 — WORDING APPEARS
+           ======================================================== */
+
+        splash.to(
+          logoWording,
+          {
+            autoAlpha: 1,
+
+            y: 0,
+
+            duration: 0.85,
+
+            ease:
+              'power2.out',
+          }
+        );
+
+        /*
+         * Keep full identity visible.
+         */
+
+        splash.to(
+          {},
+          {
+            duration: 1.35,
+          }
+        );
+
+        /* ========================================================
+           03 — WORDING DISAPPEARS
+           ======================================================== */
+
+        splash.to(
+          logoWording,
+          {
+            autoAlpha: 0,
+
+            y: -8,
+
+            duration: 0.65,
+
+            ease:
+              'power2.inOut',
+          }
+        );
+
+        /* ========================================================
+           04 — SYMBOL CENTRES + SHRINKS
+           ======================================================== */
+
+        splash.to(
+          logoSymbol,
+          {
+            x: () =>
+              logoTargetX,
+
+            y: () =>
+              logoTargetY,
+
+            scale: () =>
+              logoTargetScale,
+
+            duration: 1.25,
+
+            ease:
+              'power3.inOut',
+          },
+          '-=0.02'
+        );
+
+        /*
+         * Pause once logo reaches
+         * exact mask size.
+         */
+
+        splash.to(
+          {},
+          {
+            duration: 0.35,
+          }
+        );
+
+        /* ========================================================
+           05 — GOLD BORDER APPEARS
+           ======================================================== */
+
+        splash.to(
+          borderSvg,
+          {
+            autoAlpha: 1,
+
+            duration: 0.45,
+
+            ease:
+              'power2.out',
+          }
+        );
+
+        /* ========================================================
+           06 — SOLID LOGO FADES
+           ======================================================== */
+
+        splash.to(
+          logoSymbol,
+          {
+            autoAlpha: 0,
+
+            duration: 0.5,
+
+            ease:
+              'power2.inOut',
+          },
+          '-=0.06'
+        );
+
+        splash.set(
+          logoStage,
+          {
+            autoAlpha: 0,
+          }
+        );
+
+        /*
+         * Let the gold border sit alone.
+         */
+
+        splash.to(
+          {},
+          {
+            duration: 0.4,
+          }
+        );
+
+        /* ========================================================
+           07 — HERO APPEARS INSIDE DIAMOND
+           ======================================================== */
+
+        splash.addLabel(
+          'heroReveal'
+        );
+
+        splash.to(
+          blackOverlay,
+          {
+            opacity: 0,
+
+            duration: 0.5,
+
+            ease:
+              'power1.inOut',
+          },
+          'heroReveal'
+        );
+
+        /* ========================================================
+           08 — DIAMOND EXPANDS FULLSCREEN
+           ======================================================== */
+
+        splash.to(
+          maskScaleGroup,
+          {
+            attr: {
+              transform:
+                () =>
+                  `scale(${finalScale})`,
+            },
+
+            duration: 1.65,
+
+            ease:
+              'power3.inOut',
+          },
+          'heroReveal+=0.15'
+        );
+
+        splash.to(
+          borderScaleGroup,
+          {
+            attr: {
+              transform:
+                () =>
+                  `scale(${finalScale})`,
+            },
+
+            duration: 1.65,
+
+            ease:
+              'power3.inOut',
+          },
+          'heroReveal+=0.15'
+        );
+
+        /* ========================================================
+           BORDER FADES DURING EXPANSION
+           ======================================================== */
+
+        splash.to(
+          borderSvg,
+          {
+            autoAlpha: 0,
+
+            duration: 0.5,
+
+            ease:
+              'power1.out',
+          },
+          'heroReveal+=1.02'
+        );
+
+        /* ========================================================
+           HERO COPY + NAVIGATION
+           ======================================================== */
+
+        splash.to(
+          content,
+          {
+            autoAlpha: 1,
+
+            y: 0,
+
+            duration: 0.7,
+
+            ease:
+              'power2.out',
+          },
+          'heroReveal+=0.95'
+        );
+      },
+      container
+    );
+
+    /* ============================================================
+       EVENTS
+       ============================================================ */
+
+    window.addEventListener(
+      'resize',
+      handleResize,
+      {
+        passive: true,
+      }
+    );
+
+    mediaQuery.addEventListener(
+      'change',
+      handleMotionChange
+    );
+
+    return () => {
+      window.removeEventListener(
+        'resize',
+        handleResize
+      );
+
+      mediaQuery.removeEventListener(
+        'change',
+        handleMotionChange
+      );
+
+      cancelAnimationFrame(
+        resizeFrame
+      );
+
+      root.classList.remove(
+        'chandra-intro-active'
+      );
+
+      if (ctx) {
+        ctx.revert();
+      }
+    };
   }, [heroForegroundRef]);
 
+  /* ============================================================
+     JSX
+     ============================================================ */
+
   return (
-
     <div
-
       ref={containerRef}
-
       aria-hidden="true"
-      hidden
-
       className="chandra-preloader"
-
     >
-
-      {/* ==========================================================
-
-          HERO VIDEO REVEAL MASK
-
-          ========================================================== */}
-
-
-
-      <svg
-
-        className="preloader-mask-svg"
-
-        aria-hidden="true"
-
-      /*
-       * CRITICAL FIRST-PAINT STYLES.
-       *
-       * These exist before React effects,
-       * styled-jsx or video decoding.
-       */
-      style={{
-        position: 'fixed',
-
-        inset: 0,
-
-        width: '100vw',
-        height: '100dvh',
-
-        zIndex: 900,
-
-        overflow: 'hidden',
-
-        background: 'transparent',
-
-        pointerEvents: 'none',
-      }}
-    >
-      {/* ===================================================
-          FULL BLACK TRANSITION LAYER
-
-          This is BELOW the mask.
-          =================================================== */}
+      {/* ======================================================
+          BLACK INTRO
+          ====================================================== */}
 
       <div
-        ref={blackOverlayRef}
+        ref={
+          blackOverlayRef
+        }
         className="preloader-black-cover"
       />
 
-      {/* ===================================================
-          HERO DIAMOND MASK
-
-          Black outside.
-          Transparent inside.
-          =================================================== */}
+      {/* ======================================================
+          HERO MASK
+          ====================================================== */}
 
       <svg
         className="preloader-mask-svg"
@@ -453,37 +858,45 @@ export const Preloader: React.FC<PreloaderProps> = ({
             id="chandra-emblem-mask"
             maskUnits="userSpaceOnUse"
           >
-            {/*
-              WHITE:
-              black rectangle remains.
-            */}
             <rect
               width="100%"
               height="100%"
               fill="white"
             />
 
-            {/*
-              BLACK:
-              punches transparent hole.
-            */}
             <g
-              ref={maskPositionGroupRef}
+              ref={
+                maskPositionGroupRef
+              }
               transform="translate(0 0)"
             >
               <g
-                ref={maskScaleGroupRef}
+                ref={
+                  maskScaleGroupRef
+                }
                 transform="scale(1)"
               >
-                <g transform="translate(-60 -60)">
+                <g
+                  transform={`translate(${
+                    -REVEAL_SIZE / 2
+                  } ${
+                    -REVEAL_SIZE / 2
+                  })`}
+                >
                   <svg
-                    width="120"
-                    height="120"
+                    width={
+                      REVEAL_SIZE
+                    }
+                    height={
+                      REVEAL_SIZE
+                    }
                     viewBox="0 0 352 352"
                     fill="black"
                   >
                     <path
-                      d={DIAMOND_PATH}
+                      d={
+                        DIAMOND_PATH
+                      }
                     />
                   </svg>
                 </g>
@@ -495,165 +908,110 @@ export const Preloader: React.FC<PreloaderProps> = ({
         <rect
           width="100%"
           height="100%"
-
           fill="#070807"
-
           mask="url(#chandra-emblem-mask)"
         />
       </svg>
 
-
-
-      {/* ==========================================================
-
-          FULL BLACK INTRO COVER
-
-
-
-          Prevents Hero footage appearing before
-
-          the logo has returned to centre.
-
-          ========================================================== */}
-
-
-
-      <div
-
-        ref={blackOverlayRef}
-
-        className="preloader-black-cover"
-
-      />
-
-      {/* Anniversary message crossfades with the CHANDRA particle dissolve. */}
-      <div
-        ref={anniversaryRef}
-        className="preloader-anniversary"
-      >
-        <span className="preloader-anniversary-number">75+</span>
-        <span className="preloader-anniversary-copy">YEARS OF EXCELLENCE</span>
-      </div>
-
-      {/* Particle layer used only while the original inline SVG dissolves. */}
-      <div
-        ref={particleLayerRef}
-        className="preloader-particles"
-      />
-
-
-
-      {/* ==========================================================
-
-          ORIGINAL CHANDRA LOGO
-
-
-
-          SAME PATHS.
-
-          SAME COLORS.
-
-          SAME PROPORTIONS.
-
-
-
-          Only groups were separated so animation
-
-          can control symbol + letters independently.
-
-          ========================================================== */}
-
-
-
-      <div
-
-        ref={brandGroupRef}
-
-        className="preloader-brand"
-
-      >
-
-        <svg
-
-          xmlns="http://www.w3.org/2000/svg"
-
-          viewBox="0 0 1024 286"
-
-          fill="none"
-
-          className="brand-svg"
-
-        >
-
-          {/* ======================================================
-
-              DIAMOND SYMBOL
-
-              ====================================================== */}
+      {/* ======================================================
+          GOLD BORDER
+          ====================================================== */}
 
       <svg
         ref={borderSvgRef}
-
         className="preloader-diamond-border"
-
         aria-hidden="true"
       >
         <defs>
           <filter
             id="diamond-gold-glow"
-
             x="-100%"
             y="-100%"
-
             width="300%"
             height="300%"
           >
             <feGaussianBlur
-              stdDeviation="1.8"
-
+              stdDeviation="1.7"
               result="blur"
             />
 
             <feMerge>
-              <feMergeNode in="blur" />
+              <feMergeNode
+                in="blur"
+              />
 
               <feMergeNode
                 in="SourceGraphic"
               />
             </feMerge>
           </filter>
+
+          <linearGradient
+            id="preloader-border-gold"
+            x1="0"
+            y1="0"
+            x2="1"
+            y2="1"
+          >
+            <stop
+              offset="0%"
+              stopColor="#FFF0A3"
+            />
+
+            <stop
+              offset="28%"
+              stopColor="#E4BD65"
+            />
+
+            <stop
+              offset="60%"
+              stopColor="#C7963F"
+            />
+
+            <stop
+              offset="100%"
+              stopColor="#F0CE79"
+            />
+          </linearGradient>
         </defs>
 
         <g
-          ref={borderPositionGroupRef}
-
+          ref={
+            borderPositionGroupRef
+          }
           transform="translate(0 0)"
         >
           <g
-            ref={borderScaleGroupRef}
-
+            ref={
+              borderScaleGroupRef
+            }
             transform="scale(1)"
           >
-            <g transform="translate(-60 -60)">
+            <g
+              transform={`translate(${
+                -REVEAL_SIZE / 2
+              } ${
+                -REVEAL_SIZE / 2
+              })`}
+            >
               <svg
-                width="120"
-                height="120"
-
+                width={
+                  REVEAL_SIZE
+                }
+                height={
+                  REVEAL_SIZE
+                }
                 viewBox="0 0 352 352"
-
                 overflow="visible"
               >
                 <path
-                  d={DIAMOND_PATH}
-
+                  d={
+                    DIAMOND_PATH
+                  }
                   fill="none"
-
-                  stroke="#C6A15B"
-
+                  stroke="url(#preloader-border-gold)"
                   strokeWidth="4"
-
                   vectorEffect="non-scaling-stroke"
-
                   filter="url(#diamond-gold-glow)"
                 />
               </svg>
@@ -662,104 +1020,121 @@ export const Preloader: React.FC<PreloaderProps> = ({
         </g>
       </svg>
 
-      {/* ===================================================
-          75+ YEARS OF EXCELLENCE
-          =================================================== */}
+      {/* ======================================================
+          CHANDRA LOGO
+          ====================================================== */}
 
       <div
-        ref={anniversaryRef}
-
-        className="preloader-anniversary"
+        ref={logoStageRef}
+        className="preloader-logo-stage"
       >
-        <span className="anniversary-number">
-          75+
-        </span>
+        <svg
+          ref={logoSvgRef}
+          className="preloader-logo-svg"
+          viewBox={`0 0 ${LOGO_VIEWBOX_WIDTH} ${LOGO_VIEWBOX_HEIGHT}`}
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          {/* SYMBOL */}
 
-        <span className="anniversary-copy">
-          YEARS OF EXCELLENCE
-        </span>
+          <g
+            ref={logoSymbolRef}
+            id="preloader-logo-symbol"
+          >
+            <use
+              href={`${LOGO_SVG}#logo-symbol`}
+            />
+          </g>
+
+          {/* WORDING */}
+
+          <g
+            ref={logoWordingRef}
+            id="preloader-logo-wording"
+          >
+            <use
+              href={`${LOGO_SVG}#logo-wording`}
+            />
+          </g>
+        </svg>
       </div>
 
-      {/* ===================================================
-          FIRST-PAINT BOOT COVER
-
-          INLINE BLACK means Hero/video cannot flash
-          before React/GSAP starts.
-          =================================================== */}
-
-      <div
-        ref={bootCoverRef}
-
-        className="preloader-boot-cover"
-
-        style={{
-          position: 'absolute',
-
-          inset: 0,
-
-          width: '100%',
-          height: '100%',
-
-          zIndex: 7,
-
-          background: '#070807',
-
-          opacity: 1,
-
-          pointerEvents: 'none',
-        }}
-      />
-
       <style jsx>{`
-
         :global(html) {
-          scrollbar-gutter: stable;
+          scrollbar-gutter:
+            stable;
         }
 
-        :global(html.chandra-intro-active),
-        :global(html.chandra-intro-active body) {
-          overflow-y: hidden;
+        :global(
+          html.chandra-intro-active
+        ),
+        :global(
+          html.chandra-intro-active
+            body
+        ) {
+          overflow:
+            hidden;
         }
+
+        /* ====================================================
+           ROOT
+           ==================================================== */
 
         .chandra-preloader {
-          user-select: none;
+          position:
+            fixed;
 
-          background: transparent;
+          inset: 0;
+
+          z-index: 900;
+
+          width: 100vw;
+
+          height: 100vh;
+          height: 100dvh;
+
+          overflow:
+            hidden;
+
+          background:
+            transparent;
+
+          pointer-events:
+            none;
+
+          user-select:
+            none;
         }
 
-        /*
-         * Full black transition layer.
-         *
-         * IMPORTANT:
-         * This sits BELOW the mask.
-         */
+        /* ====================================================
+           BLACK
+           ==================================================== */
+
         .preloader-black-cover {
-          position: absolute;
+          position:
+            absolute;
+
           inset: 0;
 
           z-index: 2;
 
-          width: 100%;
-          height: 100%;
-
-          background: #070807;
+          background:
+            #070807;
 
           opacity: 1;
 
-          pointer-events: none;
+          pointer-events:
+            none;
         }
 
-        /*
-         * This layer creates:
-         *
-         * BLACK OUTSIDE
-         * TRANSPARENT DIAMOND INSIDE
-         *
-         * Hero.tsx exists underneath
-         * the entire preloader.
-         */
+        /* ====================================================
+           MASK
+           ==================================================== */
+
         .preloader-mask-svg {
-          position: absolute;
+          position:
+            absolute;
+
           inset: 0;
 
           z-index: 3;
@@ -767,26 +1142,61 @@ export const Preloader: React.FC<PreloaderProps> = ({
           width: 100%;
           height: 100%;
 
-          overflow: visible;
+          overflow:
+            visible;
 
-          pointer-events: none;
+          pointer-events:
+            none;
         }
 
-        /*
-         * CSS repeats only non-critical styling.
-         *
-         * Critical first-paint positioning is
-         * already inline on the video itself.
-         */
-        .preloader-video {
-          will-change: opacity;
+        /* ====================================================
+           INITIAL LOGO
+           ==================================================== */
+
+        .preloader-logo-stage {
+          position:
+            absolute;
+
+          top: 50%;
+          left: 50%;
+
+          z-index: 4;
+
+          width:
+            min(
+              46vw,
+              320px
+            );
+
+          transform:
+            translate(
+              -50%,
+              -50%
+            );
+
+          pointer-events:
+            none;
         }
 
-        /*
-         * Gold outline sits above mask + video.
-         */
+        .preloader-logo-svg {
+          display:
+            block;
+
+          width: 100%;
+          height: auto;
+
+          overflow:
+            visible;
+        }
+
+        /* ====================================================
+           GOLD BORDER
+           ==================================================== */
+
         .preloader-diamond-border {
-          position: absolute;
+          position:
+            absolute;
+
           inset: 0;
 
           z-index: 5;
@@ -794,133 +1204,61 @@ export const Preloader: React.FC<PreloaderProps> = ({
           width: 100%;
           height: 100%;
 
-          overflow: visible;
+          overflow:
+            visible;
 
           opacity: 0;
 
-          pointer-events: none;
+          pointer-events:
+            none;
         }
 
-        /*
-         * Anniversary is above everything except
-         * the first-paint black cover.
-         */
-        .preloader-anniversary {
-          position: absolute;
-          inset: 0;
+        /* ====================================================
+           MOBILE
+           ==================================================== */
 
-          z-index: 6;
-
-          display: flex;
-          flex-direction: column;
-
-          align-items: center;
-          justify-content: center;
-
-          gap: clamp(
-            14px,
-            2vh,
-            24px
-          );
-
-          text-align: center;
-
-          opacity: 0;
-          visibility: hidden;
-
-          pointer-events: none;
-        }
-
-        .anniversary-number {
-          display: block;
-
-          font-family:
-            var(
-              --font-display-condensed
-            );
-
-          font-size:
-            clamp(
-              120px,
-              19vw,
-              260px
-            );
-
-          font-weight: 900;
-
-          line-height: 0.75;
-
-          letter-spacing: -0.045em;
-
-          color: #f3efe6;
-
-          text-shadow:
-            0 0 34px
-              rgba(
-                198,
-                161,
-                91,
-                0.12
-              );
-        }
-
-        .anniversary-copy {
-          display: block;
-
-          font-family:
-            var(--font-body);
-
-          font-size:
-            clamp(
-              15px,
-              1.6vw,
-              22px
-            );
-
-          font-weight: 700;
-
-          line-height: 1;
-
-          letter-spacing: 0.24em;
-
-          color: #c6a15b;
-
-          text-transform: uppercase;
-        }
-
-        .preloader-particles {
-          position: absolute;
-          inset: 0;
-          z-index: 5;
-          overflow: hidden;
-          pointer-events: none;
-        }
-
-        :global(.preloader-particle) {
-          position: absolute;
-          border-radius: 999px;
-          opacity: 0;
-          transform: translate(-50%, -50%);
-          pointer-events: none;
-          will-change: transform, opacity;
-        }
-
-        @media (max-width: 767px) {
-          .anniversary-number {
-            font-size:
-              clamp(
-                96px,
-                30vw,
-                160px
+        @media (
+          max-width: 767px
+        ) {
+          .preloader-logo-stage {
+            width:
+              min(
+                64vw,
+                280px
               );
           }
+        }
 
-          .anniversary-copy {
-            padding-left: 0.24em;
+        /* ====================================================
+           SHORT SCREEN
+           ==================================================== */
 
-            font-size: 12px;
+        @media (
+          max-height: 700px
+        ) and (
+          min-width: 768px
+        ) {
+          .preloader-logo-stage {
+            width:
+              min(
+                42vw,
+                290px
+              );
+          }
+        }
 
-            letter-spacing: 0.2em;
+        /* ====================================================
+           REDUCED MOTION
+           ==================================================== */
+
+        @media (
+          prefers-reduced-motion:
+            reduce
+        ) {
+          .preloader-logo-stage,
+          .preloader-diamond-border {
+            transition:
+              none !important;
           }
         }
       `}</style>
